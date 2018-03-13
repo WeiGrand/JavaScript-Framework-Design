@@ -71,3 +71,128 @@ Object.keys = Object.keys || function(obj) {
 //参见 ch01/extend.js
 ```
 
+由于功能很常用，在ES6中对它进行了支持，于是有了 `Object.assign` 。要在低端浏览器中使用的话需要使用以下 `polyfill` (指复制缺少API和API功能的行为)：
+
+```javascript
+module.exports = Object.assign || function(target, source) {
+    const to = (target === null || target === void 0) ? 
+        throw new TypeError('Object.assign can not be called with null or undefined') :
+    	Object(target);
+    
+    const argLength = arguments.length;
+    
+    for(let i = 1; i < argLength; i++) {
+        let from = Object(arguments[i]);
+        let keys = Object.keys(from);
+        let keysLength = keys.length;
+        
+        for(let j = 0; j < keysLength; j++) {
+            to[key[j]] = from[key[j]];
+        }
+    }
+    
+    return to;
+}
+```
+
+
+
+# 数组化
+
+浏览器中存在的类数组对象有：
+
+`function` 里的 `arguments`
+
+`document.forms`
+
+`form.elements`
+
+`documents.links`
+
+`select.options`
+
+`document.getElementsByName`
+
+`document.getElementsByTagName`
+
+`childNodes`
+
+`children`
+
+```javascript
+const arrayLike = {
+    0: 'a',
+    1: '1',
+    2: '2',
+    length: 3
+}
+```
+
+通常使用 `Array.prototype.slice.call` 对类数组进行转换，但旧版IE的 `HTMLCollection` 和 `NodeList` 不是 `Object` 的子类，所以会报错。不同库有各自的解决方案。
+
+jQuery 的处理如下
+
+```javascript
+var makeArray = function(array) {
+    var ret = [];
+    if(array != null) {
+        var i = array.length;
+        
+        // 其中 window, string, function 也有 length 属性，要排除
+        if(i == null || //没有 length
+           typeof array === 'string' || //string
+           jQuery.isFunction(array) || //function
+           array.setInterval //window
+          ) {
+            ret[0] = array;
+        }else {
+            while(i) {
+                ret[--i] = array[i];
+            }
+        }
+    }
+    
+    return ret;
+}
+```
+
+Prototype.js 的处理如下
+
+```javascript
+function $A(iterable) {
+    if(!iterable)
+        return [];
+    if(iterable.toArray
+        return iterable.toArray();
+    var length = iterable.length || 0, results = new Array(length);
+    while(length--)
+        results[length] = iterable[length];
+    return results;
+}
+```
+
+mootools 的处理如下
+
+```javascript
+function $A(iterable) {
+    if(iterable.item) { //用于区分是否 HTMLCollection 因为 HTMLCollection 有 item 方法，用于获取元素 h.item(0) => 第一个元素
+        var l = iterable.length, array = new Array(l);
+        while(l--)
+            array[l] = iterable[l];
+        return array;
+    }
+    
+    return Array.prototype.slice.call(iterable);
+}
+```
+
+avalon 的处理如下
+
+```javascript
+//参见 slice.js
+```
+
+
+
+
+
