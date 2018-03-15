@@ -434,3 +434,167 @@ jQuery.isNumeric = function(obj) {
 
 ### isArrayLike
 
+识别类数组的手段是它应该有一个 `>=0` 的整形 `length` 属性。此外，`window`与函数和元素节点不算类数组。
+
+jQuery的实现：
+
+```javascript
+//jQuery2.0
+function isArrayLike(obj) {
+    var length = obj.length, type = jQuery.type(obj);
+    if(jQuery.isWindow(obj))
+        return false;
+    if(obj.nodeType === 1 && length)
+        return true;
+    
+    return type === 'array' ||
+        type !== 'function' && (length === 0 || 
+                                typeof length === 'number' && length > 0 && (length - 1) in obj);
+}
+
+//jQuery3.0
+function isArrayLike(obj) {
+    var length = !!obj && 'length' in obj && obj.length,
+        type = jQuery.type(obj);
+    
+    if(type === 'function' || jQuery.isWindow(obj))
+        return false;
+    
+    return type === 'array' ||
+        length === 0 ||
+        typeof length === 'number' && length > 0 && (length - 1) in obj;
+}
+```
+
+avalon的实现
+
+```javascript
+//avalon 1.4
+var toString = class2type.toString;
+var rarrayLike = /(Array|List|Collection|Map|Arguments)\]$/;
+var rfunction = /^\s*\bfunction\b/;
+function isArrayLike(obj) {
+    if(!obj)
+        return false;
+    var n = obj.length;
+    if(n === (n >>> 0)) { //非负整数的判断方法 相对于 typeof n === 'number' && n >= 0
+        var type = toString.call(obj).slice(8, -1);
+        if(rarrayLike.test(type)) //感觉逻辑有问题
+            return false; //为什么return false ?
+        if(type === 'Array')
+            return true;
+        try {//IE的NodeList会报错
+            if({}.propertyIsEnumerable.call(obj, 'length') === false) { //原生对象
+                return rfunction.test(obj.item ||
+                                     obj,callee);
+            }
+            
+            return true;
+        } catch(e) {
+            return !obj.window //IE678 window
+        }
+    }
+    
+    return false;
+}
+
+//avalon.mobile
+function isArrayLike(obj) {
+    if(obj && typeof obj === 'object') {
+        var n = obj.length, str = toString.call(obj);
+        
+        if(rarrayLike.test(str))
+            return true;
+        else if(str === '[object Object]' && n === (n >>> 0))
+            return true;
+    }
+    
+    return false;
+}
+```
+
+
+
+# domReady
+
+`DOMContentLoaded` 事件的别称，具体实现策略：
+
+- 对于支持 `DOMContentLoaded` 事件的使用 `DOMContentLoaded` 事件，但如果 `script` 是动态加载的，在插入 `DOM树` 的时候， `DOM树` 已经建完了，这是需要监听 `onload` 和判断 `document.readyState` 是否为 `complete`，不过 `document.readyState` 在 `FirxFox` 中有兼容问题。
+
+  ```javascript
+  //avalon 实现参见 domReady.js
+  ```
+
+- 旧版本IE使用 `Diego Perini` 发现的 `hack`
+
+  ```javascript
+  function IEContentLoaded(w, fn) {
+      var d = w.document, done = false;
+      
+      function init() {
+          if(!done) {
+              done = true;
+              fn();
+          }
+      }
+      
+      (function() {
+          try {
+              d.documentElement.doScroll('left');
+          } catch(e) {
+              setTimeout(arguments.calle, 50);
+              return;
+          }
+          
+          init();
+      })();
+      
+      d.onreadystatechange = function() {
+          if(d.readyState == 'complete') {
+              d.onreadystatechange = null;
+              init();
+          }
+      }
+  }
+  ```
+
+  此外，IE还可以通过 `script defer hack` 进行判定
+
+  ```javascript
+  documemt.write("<script id=__ie_onload defer src=//0><\/scr" + "ipt>");
+  var script = document.getElementById('__ie_onload');
+  script.onreadystatechange = function() {
+      if(this.readyState == 'complete') {
+          //init
+      }
+  }
+  ```
+
+
+
+# 无冲突处理
+
+以 `jQuery` 为例，`无冲突处理` 其实就是把 `$` 让给其她库，自己则使用 `jQuery(selector)`
+
+```javascript
+//在初始化的前缓存 window 上 的 $ 和 jQuery，等初始化之后再将原来的 $ 和 jQuery 赋值回 window 上。
+
+var window = this,
+    _jQuery = window.jQuery, //undefined or other lib
+    _$ = window.$, //undefined or other lib
+    jQuery = window.jQuery = window.$ = function(selector, context) {
+        return new jQuery.fn.init(selector, context);
+    }
+
+jQuery.extend({
+    noConflict: function(deep) {
+        window.$ = _$;
+        if(deep) {
+            window.jQuery = _jQuery;
+        }
+        
+       	return jQuery;
+    }
+});
+```
+
