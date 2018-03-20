@@ -1,5 +1,8 @@
 # 语言模块
 
+- [字符串的扩展与修复](# 字符串的扩展与修复)
+- [数组的扩展与修复](# 数组的扩展与修复)
+
 ## 字符串的扩展与修复
 
 字符串方法分为
@@ -360,4 +363,203 @@ function escapeRegExp(target) {
 ```
 
 
+
+### pad
+
+为字符串某一端添加字符串，一般为补 `0`
+
+```javascript
+//target 多为 Number 所以可以看到下面多数用了 toString 
+//version 1
+function pad(target, n) {
+    var zero = new Array(n).join('0'); //这里实际上应该是 n + 1，否则 pad('', n) 结果是不对的
+    var str = zero + target;
+    var result = str.substr(-n);
+    return result;
+}
+
+//version 2
+function pad(target, n) {
+    return new Array((n + 1) - target.toString().split('').length).join('0') + target;
+}
+
+//version 3 二进制法
+function pad(target, n) {
+    //Math.pow(10, n) === (1 << n).toString(2)
+    return (Math.pow(10, n) + '' + target).slice(-n); //如果 target为 '' ,这个方法一样有bug
+}
+
+// ...省略几个差不多的 而且都有 bug 的方法
+
+//version 7 质朴长存法
+function pad(target, n) {
+    var len = target.toString().length;
+    while(len < n) {
+        target = '0' + target;
+        len++;
+    }
+    
+    return target;
+}
+
+//version 8 
+function pad(target, n, filling, right, radix) {
+    var num = target.toString(radix || 10);
+    filling = filling || '0';
+    while(num.length < n) {
+        if(!right) {
+            num = filling + num;
+        }else {
+            num = num + filling;
+        }
+    }
+    
+    return num;
+}
+```
+
+
+
+### format
+
+类似 `C` 的 `printf`
+
+```javascript
+function format(str, object) {
+    var array = Array.prototype.slice.call(arguments, 1);
+    return str.replace(/\\?\#{([^{}]+)\}/gm, function(match, name) {
+        if(match.charAt(0) === '\\') { // '\\'.length === 1
+            return match.slice(1); // 表示不需要format
+        }
+        var index = Number(name);
+        if(index >= 0) {
+            return array[index];
+        }
+        if(array && array[name] !== void 0) {
+            return object[name];
+        }
+        
+        return '';
+    });
+}
+
+var a = format('Result is #{0}, #{1}', 22, 33);
+//"Result is 22, 33"
+var b = format('#{name} is a #{sex}', {
+    name: 'John',
+    sex: 'man'
+});
+//"John is a man"
+```
+
+
+
+### quote
+
+在字符串两端加双引号
+
+```javascript
+//暂不实现
+```
+
+
+
+### tirm
+
+去除两端空白
+
+```javascript
+//version 1
+function trim(str) {
+    return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+}
+
+//version 2
+function trim(str) {
+    return str.replace(/^\s+/, '').replace(/\s+$/, '');
+}
+
+//version 3
+function trim(str) {
+    return str.substring(Math.max(str.search(/\S/) || 0), str.search(/\S\s*$/) + 1);
+}
+
+//version 4
+function trim(str) {
+    return str.replace(/^\s+|\s+$/g, ''); //看起来优雅 但失去了浏览器优化的机会
+}
+
+//version 5
+function trim(str) {
+    str = str.match(/\S+(?:\s*\S)*/); //["test", index: 0, input: "test"]
+    return str ? str[0] : '';
+}
+
+//version 6 效率差
+function trim(str) {
+    return str.replace(/^\s*(\S*(\s+\S+)*)\s*$/, '$1');
+}
+
+//version 7 使用非捕获组对 version 6 进行优化
+function trim(str) {
+    return str.replace(/^\s*(\S*(?:\s+\S+)*)\s*$/, '$1');
+}
+
+//version 8
+function trim(str) {
+    return str.replace(/^\s*((?:[\S\s]*\S)?)\s*$/, '$1');
+}
+
+//version 9
+function trim(str) {
+    return str.replace(/^\s*([\S\s]*?)\s*$/, '$1');
+}
+
+//version 10 最优 把可能的空白符全部列出来，第一次遍历去掉前面的空白，第二次去掉后面的空白，没有使用正则
+function trim(str) {
+    var whitespace = ' \n\r\t\f\x0b\xa0\u2000\u2001\u2002\u2003\n\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u200b\u2028\u2029\u3000';
+    //第一次遍历去掉前面的空白
+    for(var i = 0; i < str.length; i++) {
+        if(whitespace.indexOf(str.charAt(i)) === -1) {
+            str = str.substring(i);
+            break;
+        }
+    }
+    
+    //第二次去掉后面的空白
+    for(var i = str.length - 1; i >= 0; i--) {
+        if(whitespace.indexOf(str.charAt(i)) === -1) {
+            str = str.substring(0, i + 1);
+            break;
+        }
+    }
+    
+    return whitespace.indexOf(str.charAt(0)) === -1 ? str : '';
+}
+
+//version 11 10的压缩版，使用了正则
+function trim(str) {
+    str = str.replace(/^\s+/, '');
+    for(var i = str.length; i >= 0; i--) {
+        if(/\S/.test(str.charAt(i))) {
+            str = str.substring(0, i + 1);
+            break;
+        }
+    }
+    
+    return str;
+}
+
+//version 12 作者觉得的易记版 前后寻找第一个非空白字符的索引
+function trim(str) {
+    var m = str.length;
+    for(var i = -1; str.charCodeAt(++i) <= 32) //32 之前都不是「正常」字符
+        for(var j = m - 1; str.charCodeAt(j) <= 32; j--)
+            return str.slice(i, j + 1);
+}
+```
+
+
+
+### 数组的扩展与修复
 
