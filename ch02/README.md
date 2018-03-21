@@ -3,6 +3,7 @@
 - [字符串的扩展与修复](#字符串的扩展与修复)
 - [数组的扩展与修复](#数组的扩展与修复)
 - [数值的扩展与修复](#数值的扩展与修复)
+- [函数的扩展与修复](#函数的扩展与修复)
 
 ## 字符串的扩展与修复
 
@@ -744,4 +745,88 @@ Array.prototype.unshift = function() {
 # 数值的扩展与修复
 
 
+
+### toInteger
+
+```javascript
+var toInteger = function(n) {
+    n = +n; //undefined 和 NaN 都会转为 NaN
+    if(n !== n) { // isNaN
+        n = 0;
+    }else if(n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
+        n = (n > 0 || -1) * Math.floor(Math.abs(n));
+    }
+    return n;
+}
+```
+
+
+
+### limit
+
+确保数值在 [n1, n2] 闭区间内
+
+```javascript
+function limit(target, n1, n2) {
+    var a = [n1, n2].sort(); //升序
+    if(target < a[0])
+        target = a[0];
+    if(target > a[1])
+        target = a[1];
+    return target;
+}
+```
+
+
+
+### nearer
+
+求出距离指定数值最近的数
+
+```javascript
+function nearer(target, n1, n2) {
+    var diff1 = Math.abs(target - n1),
+        diff2 = Math.abs(target - n2);
+    return diff1 < diff2 ? n1 : n2;
+}
+```
+
+
+
+### 修复 toFixed
+
+一些浏览器没有四舍五入
+
+```javascript
+if(0.9.toFixed(0) !== '1') {
+    Number.prototype.toFixed = function(n) {
+        var power = Math.pow(10, n);
+        var fixed = (Math.round(this * power) / power).toString();
+        if(n == 0)
+            return fixed;
+        if(fixed.indexOf('.') < 0)
+            fixed += '.';
+        var padding = n + 1 - (fixed.length - fixed.indexOf('.'));
+        for(var i = 0; i < padding; i++)
+            fixed += '0';
+        return fixed;
+    }
+}
+```
+
+
+
+在 `JavaScript` 中数值有3种保存方式
+
+- 字符串形式
+- `IEEE 754` 标准双精度浮点数（64位）
+- 32位整数
+
+大数相加出问题是由于 `精度不足`
+
+小数相加出问题是由于 `禁止转算是产品误差`
+
+
+
+# 函数的扩展与修复
 
