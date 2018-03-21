@@ -719,7 +719,7 @@ if([].unshift(1) !== 1) {
 //splice 接受 3 个参数，起始索引，终止索引，插入值
 var _slice = Array.prototype.slice;
 Array.prototype.unshift = function() {
-    this.splice.apply(this, [0, 0].concat(_slice.call(arguments)));N
+    this.splice.apply(this, [0, 0].concat(_slice.call(arguments)));
     return this.length;
 }
 ```
