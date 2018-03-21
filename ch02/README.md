@@ -2,6 +2,7 @@
 
 - [字符串的扩展与修复](#字符串的扩展与修复)
 - [数组的扩展与修复](#数组的扩展与修复)
+- [数值的扩展与修复](#数值的扩展与修复)
 
 ## 字符串的扩展与修复
 
@@ -562,4 +563,185 @@ function trim(str) {
 
 
 ### 数组的扩展与修复
+
+- `substring`、`slice`、`substr`常用于转换类数组对象为真正的数组
+
+- `remove` 是基于 `splice` 实现的
+
+- `reduce` 和 `reduceRight` 的实现
+
+  ```javascript
+  Array.prototype.reduce = function(fn, lastResult, scope) {
+      if(this.length === 0) {
+          return lastResult;
+      }
+      //有 lastResult 就从第 0 个开始遍历，否则将第 0 个当作 lastResult 从第 1 个开始遍历
+      var i = lastResult !== undefined ? 0 : 1;
+      var result = lastResult !== undefined ? lastResult : this[0];
+      for(var n = this.length; i < n; i++)
+          result = fn.call(scope, result, this[i], i, this); // this 代表整个数组
+      return result;
+  }
+
+  Array.prototype.reduceRight = function(fn, lastResult, scope) {
+      var array = this.concat().reverse();
+      return array.reduce(fn, lastResult, scope);
+  }
+  ```
+
+
+
+avalon 为数组添加了如下扩展：
+
+### contains
+
+同 `字符串 `使用 `indexOf` 判断
+
+### removeAt / remove
+
+移除指定位置元素，返回布尔值
+
+```javascript
+function removeAt(target, index) {
+    return !!target.splice(index, 1).length;
+}
+
+function remove(target, item) {
+    var index = target.indexOf(item);
+    if(~index) { // 不懂
+        return removeAt(target, index);
+    }
+    return false;
+}
+```
+
+### shuffle
+
+洗牌
+
+```javascript
+function shuffle(target) {
+    var i = target.length;
+    var j;
+    for(; i > 0; j = parseInt(Math.random() * i)) {
+        x = target[--i];
+        target[i] = target[j];
+        target[j] = x;
+    }
+    return target;
+}
+```
+
+
+
+### flatten
+
+扁平化
+
+```javascript
+function flatten(target) {
+    var result = [];
+    target.forEach(function(item) {
+        if(Array.isArray(item)) {
+            result = result.concat(flatten(item));
+        }else {
+            result.push(item);
+        }
+    });
+    return result;
+}
+```
+
+
+
+### unique
+
+去重的最原始实现
+
+```javascript
+function unique(target) {
+    var result;
+    loop: for(var i = 0, n = target.length; i < n; i++) {
+        for(var x = i + 1; x < n; x++) {
+            if(target[x] === target[i]) {
+                continue loop;
+            }
+            result.push(target[i]);
+        }
+    }
+    return result;
+}
+```
+
+
+
+### groupBy
+
+根据指定条件进行分组
+
+看实现推测这个方法是用于元素为对象的数组
+
+```javascript
+function groupBy(target, val) {
+    var result = [];
+    var iterator = $.isFunction(val) ? val : function(obj) {
+        return obj[val];
+    }
+    target.forEach(function(value, index) {
+        var key = iterator(value, index);
+        (result[key] || result[key] = []).push(value);
+    });
+    return result;
+}
+```
+
+
+
+### unshift
+
+IE6, 7 `unshift` 不返回数组长度，可以用 `函数劫持` 进行修复
+
+```javascript
+if([].unshift(1) !== 1) {
+    var _unshift = Array.prototype.unshift;
+    Array.prototype.unshift = function() {
+        _unshift.call(this, arguments);
+        return this.length;
+    }
+}
+```
+
+
+
+使用 `splice` 实现 `unshift`
+
+```javascript
+//splice 接受 3 个参数，起始索引，终止索引，插入值
+var _slice = Array.prototype.slice;
+Array.prototype.unshift = function() {
+    this.splice.apply(this, [0, 0].concat(res));
+    return this.length;
+}
+```
+
+
+
+### 数组的空位
+
+>```javascript
+>0 in [undefined, undefined, undefined] //true
+>0 in [, , ,] //false
+>```
+
+`ECMA262V5` 大部分会忽略空位
+
+`ECMA262V6` 则明确将空位转为 `undefined`
+
+空位的处理规则非常不统一，应该避免出现空位
+
+
+
+# 数值的扩展与修复
+
+
 
