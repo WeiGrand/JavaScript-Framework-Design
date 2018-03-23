@@ -830,3 +830,100 @@ if(0.9.toFixed(0) !== '1') {
 
 # 函数的扩展与修复
 
+
+
+### bind 的实现
+
+用到了闭包（引用外部变量的内部函数），可以劫持 `this` 并且预先注入参数
+
+```javascript
+Function.prototype.bind = function(context) {
+    if(arguments.length < 2 && context == void 0) {
+        return this;
+    }
+    var _method = this, //function
+        args = [].slice.call(arguments, 1);
+    return function() {
+        return _method.apply(context, args.concat.apply(args, arguments/*这里的是对应传入闭包的参数*/));
+    }
+}
+```
+
+> - `call` 是 `obj.method(a, b, c)` 到 `method(obj, a, b, c)` 的变换
+>
+> - `apply` 是 `obj.method(a, b, c)` 到 `method(obj, [a, b, c])` 的变换
+>
+>   可以将它们「偷」出来
+>
+>   ```javascript
+>   var bind = function(bind) {
+>       return {
+>           bind: bind.bind(bind),
+>           call: bind.bind(bind.call),
+>           apply: bind.bind(bind.apply)
+>       }
+>   }(Function.prototype.bind);
+>   ```
+
+
+
+### curry
+
+把接受多个参数的函数变成接受单一参数。
+
+其用处包括
+
+- 参数复用
+- 提前返回
+- 延迟计算
+
+```javascript
+function curry(fn) {
+    function inner(len, arg) {
+        if(len === 0)
+            return fn.apply(null, arg);
+        return function() {
+            return inner(len - arguments.length, arg.concat(Array.apply([], arguments)));
+        }
+    }
+    return inner(fn, []);
+}
+
+function sum(x, y, z, w) {
+    return x + y + z + w;
+}
+
+cuury(sum)('a')('b', 'c')('d') //'abcd'
+```
+
+
+
+### partial
+
+在定义时所有参数已经都有了，但某些位置只是占位符，通过传参替换掉
+
+```javascript
+Function.prototype.partial = function() {
+    var fn = this,
+        args = Array.prototype.slice.call(arguments);
+    return function() {
+        var arg = 0;
+        for(var i = 0; i < arguments.length && arg < arguments.length; i++) {
+            if(args[i] === undefined) {
+                args[i] = arguments[arg++];
+            }
+        }
+        return fn.apply(this, args);
+    }
+}
+
+var delay = setTimeout(undefined, 10);
+delay(function() {
+    //...
+});
+```
+
+> 占位符可以换成其它，如：`纯空对象`(`Object.create(null)`)
+
+
+
