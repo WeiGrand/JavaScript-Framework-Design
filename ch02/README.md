@@ -4,6 +4,7 @@
 - [数组的扩展与修复](#数组的扩展与修复)
 - [数值的扩展与修复](#数值的扩展与修复)
 - [函数的扩展与修复](#函数的扩展与修复)
+- [日期的扩展与修复](#日期的扩展与修复)
 
 ## 字符串的扩展与修复
 
@@ -924,6 +925,147 @@ delay(function() {
 ```
 
 > 占位符可以换成其它，如：`纯空对象`(`Object.create(null)`)
+
+
+
+### apply
+
+```javascript
+Function.prototype.apply || (Function.prototype.apply = function(x, y) {
+    x = x || window;
+    y = y || [];
+    x.__apply = this; //function
+    if(!x.__apply) {
+        x.constructor.prototype.__apply = this;
+    }
+    var r, j = y.length;
+    switch(j) {
+        case 0: r = x.__apply(); break;
+        case 1: r = x.__apply(y[0]); break;
+        case 2: r = x.__apply(y[0], y[1]); break;
+        case 3: r = x.__apply(y[0], y[1], y[2]); break;
+        default:
+            var a = [];
+            for(var i = 0; i < j; i++)
+                a[i] = "y[" + i + "]";
+            r = eval("x.__apply(" + a.join(",") + ")");
+            break;
+    }
+    try {
+        delete x.__apply ? x.__apply : x.constructor.prototype.__apply;
+    } catch(e) {}
+    
+    return r;
+});
+```
+
+
+
+### call
+
+```javascript
+Function.prototype.call || (Function.prototype.call = function() {
+    var a = arguments, x = a[0], y = [];
+    for(var i = 1, j = a.length; i < j; i++)
+        y[i - 1] = a[i];
+    return this.apply(x, y);
+});
+```
+
+
+
+# 日期的扩展与修复
+
+为旧版浏览器添加 `ECMA262` 标准化方法
+
+### Date.now
+
+```javascript
+if(!Date.now) {
+    Date.now = function() {
+        return +new Date; //构造函数不传参数可以不加括号
+    }
+}
+```
+
+
+
+### Date.toISOString
+
+```javascript
+if(!Date.prototype.toISOString) {
+    void function() {
+        function pad(number) {
+            var r = String(number);
+            if(r.length === '1') {
+                r = '0' + r;
+            }
+            return r;
+        }
+        
+        Date.prototype.toJSON = 
+        Date.prototype.toISOString = function() {
+            return this.getUTCFullYear()
+            + '-' + pad(this.getUTCMonth() + 1)
+            + '-' + pad(this.getUTCDate())
+            + 'T' + pad(this.getUTCHours())
+            + ':' + pad(this.getUTCMinutes())
+            + ':' + pad(this.getUTCSeconds())
+            + '.' + String((this.getUTCMilliseconds() / 1000).toFixed(3)).slice(2, 5)
+            + 'Z';
+        }    
+    }();
+}
+```
+
+> now 2018
+>
+> `getYear()` => 118
+>
+> `getFullYear()` => 2018 
+
+
+
+作者给出的一些扩展
+
+```javascript
+//参数均为 Date 类型
+
+//求相隔天数
+function getDatePeriod(start, finish) {
+    return Math.abs(start * 1, finish * 1) / 60 / 60 / 1000 / 24;
+}
+
+//求所在月的第一天
+function getFirstDateInMonth(data) {
+    return new Date(date.getFullYear, date.getMonth(), 1);
+}
+
+//求所在月的最后一天
+function getLastDateInMonth(data) {
+    return new Date(date.getFullYear, date.getMonth() + 1, 0);
+}
+
+//求所在季度的第一天
+function getFirstDateInQuarter(data) {
+    return new Date(date.getFullYear, ~~(date.getMonth()) * 3, 1); //~~ => Math.floor()
+}
+
+//求所在季度的最后一天
+function getFirstDateInQuarter(data) {
+    return new Date(date.getFullYear, ~~(date.getMonth()) * 3 + 3, 0);
+}
+
+//判断是否为闰年
+function isLeapYear(date) {
+    return new Date(date.getFullYear(), 2, 0).getDate() == 29;
+}
+
+//求当前月份天数
+function getDaysInMonth(date) {
+    return new Date(date.getFulLYear(), date.getMonth() + 1, 0).getDate();
+}
+```
 
 
 
