@@ -564,7 +564,7 @@ function trim(str) {
 
 
 
-### 数组的扩展与修复
+## 数组的扩展与修复
 
 - `substring`、`slice`、`substr`常用于转换类数组对象为真正的数组
 
@@ -743,9 +743,7 @@ Array.prototype.unshift = function() {
 
 
 
-# 数值的扩展与修复
-
-
+## 数值的扩展与修复
 
 ### toInteger
 
@@ -829,9 +827,7 @@ if(0.9.toFixed(0) !== '1') {
 
 
 
-# 函数的扩展与修复
-
-
+## 函数的扩展与修复
 
 ### bind 的实现
 
@@ -974,7 +970,7 @@ Function.prototype.call || (Function.prototype.call = function() {
 
 
 
-# 日期的扩展与修复
+## 日期的扩展与修复
 
 为旧版浏览器添加 `ECMA262` 标准化方法
 
