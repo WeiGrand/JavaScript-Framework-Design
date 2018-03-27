@@ -51,7 +51,7 @@ const ie = !!document.recalc ||
 const ie678 = !+"\v1" ||
       !-[1, ] ||
       '\v' == 'v' ||
-      ('a~b'.split(/(~)/))[1] == 'b' || //正常的返回 ["a", "~", "b"]
+      ('a~b'.split(/(~)/))[1] == 'b' || //正常的返回 ["a", "~", "b"] 参考：https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/String/split Example: (Capturing parentheses) 捕获组的匹配结果也会包含在数组中
       0.9.toFixed(0) == '0' || //正常返回 '1'
       /\w/.test('\u0130') ||
       0//@cc_on+1;
@@ -74,4 +74,163 @@ const chrome = !!(window.chrome && window.google);
 ```
 
 我觉得吧，在实际应用中直接上网查就得了，没必要花时间记。
+
+
+
+## document.all 趣闻
+
+`document.all` 最早用于检测IE
+
+`undetected document.all` 可以正常使用，但无法（其实还是可以）检测到它的存在
+
+> An undetected object is a special class of JS Object:
+>
+> `typeof` operator returns undefined, ToBoolean returns false.
+>
+> Otherwise it behaves like a normal JS Object.
+
+```javascript
+console.log(document.all + ""); //[object HTMLAllCollection]
+//看似无法检测
+console.log(typeof documemt.all); //"undefined"
+console.log(documemt.all == undefined); //true
+//其实还是可以检测
+console.log(documemt.all === undefined); //false
+console.log('all' in documemt); //true
+```
+
+
+
+## 事件的支持侦测
+
+`Prototype` 的实现
+
+```javascript
+var isEventSupport = (function() {
+    var TAGNAMES = [ //特定元素才有的相关事件
+        'select': 'input', 
+        'change': 'input',
+        'submit': 'form',
+        'reset': 'form',
+        'error': 'img',
+        'load': 'img',
+        'abort': 'img'
+    ];
+    function isEventSupport(eventName) {
+        var el = document.createElement(TAGNAMES[eventName] || 'div');
+        eventName = 'on' + eventName; //只支持了 DOM0
+        var isSupported = (eventName in el);//光这个判断还不够
+        if(!isSupported) {
+            el.setAttrbute(eventName, 'return;');
+            isSupported = typeof el[eventName] == 'function';
+        }
+        el = null; //防止内存泄漏
+        return isSupported;
+    }
+    return isEventSupport;
+})();
+```
+
+
+
+对 `focusin` 的
+
+```javascript
+$.support.focusin = !!window.attachEvent;
+$(function() {
+    var div = documemt.createElement('div');
+    div.innerHTML = '<a href="#"></a>';
+    if(!$.support.focusin) {
+        a = div.firstChild;
+        a.dddEventListener('focusin', function() {
+            $.support.focusin = true;
+        }, false);
+        a.focus();
+    }
+});
+```
+
+
+
+`transition end` 侦测
+
+```javascript
+//bootstrap
+$.support.transition = (function() {
+	var transitionEnd = (function() {
+        var el = document.createElement('bootstrap'),
+            transEndEventNames = {
+                'WebkitTransition': 'webkitTransitionEnd',
+                'MozTransition': 'mozTransitionEnd',
+                'OTransition': 'oTransitionEnd',
+                'transtion': 'transitionend'
+            };
+        
+        for(var name in transEndEventNames) {
+            if(el.style[name] !== undefined) {
+                return transEndEventNames[name];
+            }
+        };
+	}());
+    return transitionEnd && {
+        end: transitionEnd
+    };
+})();
+```
+
+
+
+`animation end` 侦测
+
+```javascript
+//avalon
+var checker = {
+    'AnimationEvent': 'animationend',
+    'WebkitAnimationEvent': 'webkitAnimationEnd'
+}
+var ani, 
+    supportAnimation = false, 
+    animationEndEvent;
+for(var name in checker) {
+    if(window[name]) {
+        ani = checker[name];
+        break;
+    }
+}
+if(typeof ani === 'string') {
+    supportAnimation = true;
+    animationEndEvent = ani;
+}
+```
+
+
+
+## 样式的支持侦测
+
+```javascript
+//avalon
+var prefixes = ['', '-webkit-', '-moz', '-o-', '-ms-'];
+var cssMap = {};
+function cssName(name, host) {
+    if(cssMap[name]) {
+        return cssMap[name];
+    }
+    host = host || document.documentElement;
+    for(var i = 0, n = prefixes.length; i < n; i++) {
+        camelCase = $.String.camelize(prefixes[i], name);
+        if(camelCase in host) {
+            return (cssMap[name] = camelCase);
+        }
+    }
+    return null;
+}
+```
+
+若要侦测某个样式名是否支持某个样式值可以用 `CSS.supports`
+
+```javascript
+//https://developer.mozilla.org/en-US/docs/Web/API/CSS/supports
+CSS.supports("display", "flex"); //true
+CSS.supports("( transform-origin: 5% 5% )"); //true
+```
 
