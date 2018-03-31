@@ -92,6 +92,17 @@ function NewFunc(func) {
 }
 ```
 
-
-
 类的实例并不是通过 `instance.prototype` 回溯到原型链的，而是使用 `instance.__proto__`
+
+
+
+## 各种类工厂的实现
+
+`Gof` 认为 `组合` 由于 `继承` 
+
+### P.js 的实现
+
+```javascript
+//参见 P.js
+```
+
