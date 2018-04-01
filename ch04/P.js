@@ -15,7 +15,9 @@ var P = (function(prototype, ownProperty, undefined) {
     function BareConstructor() {};
 
     function P(_superclass, definition) {
-        //如果没有 definition
+        // 其中 _superclass 是可有可有可无，
+        // 只有一个参数的时候代表不传 _superclass
+        // 所以默认 _superclass 为 Object
         if(definition === undefined) {
             definition = _superclass;
             _superclass = Object;
@@ -45,7 +47,7 @@ var P = (function(prototype, ownProperty, undefined) {
 
         C.mixin = function(def) {
             return P(C, def);
-        }
+        };
 
         return (C.open = function(def) {
             if(isFunction(def)) {

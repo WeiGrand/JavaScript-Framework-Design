@@ -103,6 +103,12 @@ function NewFunc(func) {
 ### P.js 的实现
 
 ```javascript
-//参见 P.js
+// 参见 P.js
+```
+
+### JS.Class 的实现
+
+```javascript
+// 参见 JS.Class.js
 ```
 
