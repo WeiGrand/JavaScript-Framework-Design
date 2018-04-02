@@ -106,9 +106,56 @@ function NewFunc(func) {
 // 参见 P.js
 ```
 
+
+
 ### JS.Class 的实现
 
 ```javascript
 // 参见 JS.Class.js
+```
+
+
+
+### simple-inheritance 的实现
+
+```javascript
+(function() {
+    
+    var initializing = false,
+        // 判断函数是否能通过 toString 转为字符串，如果可以就用 /\b_super_\b/ 检测函数里面有没有 _super 语句
+        fnTest = /xyz/.test(function() {
+            xyz;
+        }) ? /\b_super_\b/ : /.*/;
+    
+    this.Class = function() {}; //这里的 this 就是 window
+    
+    Class.extend = function(prop) { //所以不用 this.Class 也能访问
+        var _super = this.prototype;
+        
+        initializing = true;
+        var prototype = new this(); //创建子类的原型
+        initializing = false;
+        
+        for(var name in prop) {
+            prototype[name] = typeof prop[name] === 'function' &&
+                typeof _super[name] === 'function' && fnTest.test(prop[name]) ?
+                (function(name, fn) {
+                    return function() {
+                        var tmp = this._super;
+                        this._super = _super[name];
+                        var ret = fn.apply(this, arguments);
+                        this._super = tmp;
+                        
+                        return ret;
+                    }
+            })(name, prop[name]) : 
+            prop[name];
+        }
+        
+        function Class() {
+            
+        }
+    }
+})();
 ```
 
