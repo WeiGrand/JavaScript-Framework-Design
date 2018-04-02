@@ -141,9 +141,13 @@ function NewFunc(func) {
                 typeof _super[name] === 'function' && fnTest.test(prop[name]) ?
                 (function(name, fn) {
                     return function() {
+                        //当调用 this._super 的时候，其实是想调用 父类的同名方法[name]
+                        //而不是真的存在 this._super 这个方法
                         var tmp = this._super;
                         this._super = _super[name];
+                        
                         var ret = fn.apply(this, arguments);
+                        
                         this._super = tmp;
                         
                         return ret;
@@ -153,8 +157,18 @@ function NewFunc(func) {
         }
         
         function Class() {
-            
+            //继承的时候会在 new this() 之前将 initializing 设置为 true
+            //防止触发init
+            if(!initializing && this.init) {
+                this.init.apply(this, arguments);
+            }
         }
+        
+        Class.prototype = prototype;
+        Class.prototype.constructor = Class; //确保原型的 constructor 正确指向自身
+        Class.extend = arguments.callee;
+        
+        return Class;
     }
 })();
 ```
