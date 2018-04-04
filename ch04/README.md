@@ -122,10 +122,10 @@ function NewFunc(func) {
 (function() {
     
     var initializing = false,
-        // 判断函数是否能通过 toString 转为字符串，如果可以就用 /\b_super_\b/ 检测函数里面有没有 _super 语句
+        // 判断函数是否能通过 toString 转为字符串，如果可以就用 /\b_super\b/ 检测函数里面有没有 _super 语句
         fnTest = /xyz/.test(function() {
             xyz;
-        }) ? /\b_super_\b/ : /.*/;
+        }) ? /\b_super\b/ : /.*/;
     
     this.Class = function() {}; //这里的 this 就是 window
     
@@ -171,5 +171,91 @@ function NewFunc(func) {
         return Class;
     }
 })();
+```
+
+
+
+## def.js 的实现
+
+```javascript
+(function(global) {
+    var deferred; //是一个函数，实现柯里化
+    
+    //继承
+    function extend(source) {
+        var prop,
+            target = this.prototype;
+        for(var key in source) {
+            if(source.hasOwnProperty(key)) {
+                prop = target[key] = source[key];
+                // 如果是函数类型，保存函数名和当前类
+                if('function' == typeof prop) {
+                    prop._name = key;
+                    prop._class = this; // 用于下方 base 函数访问当前类
+                }
+            }
+        }
+        return this;
+    }
+    
+    //用于切断子类与父类的原型连接
+    function Subclass() {}
+    
+    //这行父类的同名函数
+    //init: function() {this._super();} 相当于执行 父类.init();
+    function base() {
+        var caller = base.caller; // 调用 base 的函数
+        return caller._class._super.prototype[caller._name].apply(this, arguments.length ? arguments : caller.arguments);
+    }
+    
+    function def(context, klassName) {
+        klassName || (klassName = context, context = global);
+        
+        var Klass = context[klassName] = function Klass() {
+            if(context != this) { //new 的时候执行
+                return this.init && this.init.apply(this, arguments);
+            }
+            
+            deferred._super = Klass;
+            deferred._props = arguments[0] || {};
+        }
+        
+        Klass.extend = extend;
+        
+        function deferred = function(props) {
+            return Klass.extend(props);
+        }
+        
+        //重写 valueOf 在 def('Dog') < Animal({}) 的时候触发
+        //< 操作符的目的是让两边计算自身
+        deferred.valueOf = function() {
+            var Superclass = deferred._super;
+            
+            if(!Superclass) {
+                return Klass;
+            }
+            
+            Subclass.prototype = Superclass.prototype;
+            var proto = Klass.prototype = new Subclass;
+            //引用自身与父类
+            Klass._class = Klass;
+            Klass._super = Superclass;
+            
+            Klass.toString = function() {
+                return klassName;
+            }
+            
+            proto.constructor = Klass;
+            
+            proto._super = base;
+            
+            deferred(deferred._props);
+        }
+        
+        return deferred;
+    }
+    
+    global.def = def;
+}(this));
 ```
 
