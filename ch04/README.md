@@ -259,3 +259,239 @@ function NewFunc(func) {
 }(this));
 ```
 
+
+
+## 属性描述符
+
+
+
+### Object.getOwnPropertyNams
+
+获取对象 `可遍历` 与 `不可遍历` 的属性（不包括原型链上）
+
+```javascript
+//与 Object.keys 的区别在于 Object.keys 只获取可枚举的属性
+var obj = {
+    aa: 1,
+    toString: function() {
+        return '1';
+    }
+}
+
+if(Object.defineProperty && Object.seal) {
+    Object.defineProperty(obj, 'name', {
+        value: 2
+        //enumerable 默认为 false 所以该属性是不可枚举的
+    })
+}
+
+console.log(Object.getOwnPropertyNames(obj)); // ['aa', 'toString', 'name']
+console.log(Object.keys(obj)); //['aa', 'toString']
+```
+
+
+
+### Object.getPrototypeOf
+
+获取对象内部属性 `[[Protortpe]]`
+
+```javascript
+console.log(Object.getPrototypeOf(function() {}) === Function.prototype); //true
+console.log(Object.getPrototypeOf({}) === Object.prototype); //true
+```
+
+
+
+### Object.defineProperty
+
+- 访问器属性：`set` `get` `configurable` `enumerable`
+- 数据属性：`configurable` `enumerable` `value` `writable`
+
+```javascript
+var obj = {}
+Object.defineProperty(obj, 'a', {
+    value: 37, //值
+    writable: true, //是否能被 赋值运算符 改变 默认为 false
+    enumerable: true, //是否能被枚举
+    configurable: true //是否能改变描述符，以及该属性是否能被删除 默认为 false
+    //set
+    //get
+});
+```
+
+> 其中 `value` 和 `writable` 不能与 `get` 和 `set` 同时存在
+
+`defineProperty` 的第三个参数并没有使用 `hasOwnProperty` 进行取值，所以一旦 `Object.prototype` 被污染，
+
+就容易程序崩溃。
+
+下面提供一种解决方法
+
+```javascript
+function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function defineProperty(obj, key, desc) {
+    var d = Object.create(null); //没有继承的属性
+    d.configurable = hasOwn(desc, 'configurable');
+    d.enumerable = hasOwn(desc, 'enumerable');
+    if(hasOwn(desc, 'value')) {
+        d.writeable = hasOwn(desc, 'writable');
+        d.value = desc.value;
+    }else {
+        d.get = hasOwn(desc, 'get') ? desc.get : undefined;
+        d.set = hasOwn(desc, 'set') ? desc.set : undefined;
+    }
+    return Object.defineProperty(obj, key, d);
+}
+
+var obj = {};
+defineProperty(obj, 'aaa', {
+    value: 'OK'
+});
+```
+
+模拟 `Object.defineProperty`
+
+```javascript
+if(typeof Object.defineProperty !== 'function') {
+    Object.defineProperty = function(obj, prop, desc) {
+        if('value' in desc) {
+            obj[prop] = desc.value;
+        }
+        if('get' in desc) {
+            obj.__defineGetter__(prop, desc.get);
+        }
+        if('set' in desc) {
+            obj.__defineSetter__(prop, desc.set);
+        }
+        return obj;
+    }
+}
+```
+
+
+
+### Object.defineProperties
+
+`Object.defineProperty` 的加强版，可以处理多个属性。
+
+模拟 `Object.defineProperties`
+
+```javascript
+if(typeof Object.defineProperties !== 'function') {
+    Object.defineProperties = function(obj, descs) {
+        for(var prop in descs) {
+            if(descs.hasOwnProperty(prop)) {
+                Object.defineProperty(obj, prop, descs[prop]);
+            }
+        }
+    }
+}
+```
+
+
+
+### Object.getOwnPropertyDescriptor
+
+获取某个对象的本地属性的配置对象
+
+```javascript
+var obj = {};
+obj.a = 123;
+console.log(Object.getOwnPropertyDescriptor(obj, 'a')); //{value: 123, writable: true, enumerable: true, configurable: true}
+```
+
+使用场景
+
+```javascript
+function mixin(receiver, supplier) {
+    if(Object.getOwnPropertyDescriptor) {
+        Object.keys(supplier).forEach(function(property) {
+            Object.defineProperty(receiver, property, Object.getOwnPropertyDescriptor(supplier, prop));
+        });
+    }else {
+        for(var property in supplier) {
+            if(supplier.hasOwnProperty(property)) {
+                receiver[property] = supplier[property];
+            }
+        }
+    }
+}
+```
+
+
+
+### Object.create
+
+用于创建 `子类的原型`，其中第一个参数为 `父类的原型`
+
+模拟 `Object.create`
+
+```javascript
+if(typeof Object.create !== 'function') {
+    Object.create = function(prototype, descs) {
+        function F() {};
+        F.prototype = prototype;
+        var obj = new F();
+        if(descs != null) {
+            Object.defineProperty(obj, descs);
+        }
+        return obj;
+    }
+}
+```
+
+可以用来继承
+
+```javascript
+function Animal(name) {
+    this.name = name;
+}
+
+Animal.prototype.getName = function() {
+    return this.name;
+}
+
+function Dog(name, age) {
+    Animal.call(this, name);
+    this.age = age;
+}
+
+Dog.prototype = Object.create(Animal.prototype, {
+    getAge: {
+        value: function() {
+            return this.age;
+        }
+    },
+    setAge: {
+        value: function(age) {
+            this.age = age;
+        }
+    }
+});
+```
+
+
+
+### Object.preventExtesions
+
+阻止 `添加` 本地属性
+
+但允许 `修改` 、`删除` 原有的属性
+
+
+
+### Object.seal
+
+阻止 `添加` 、`删除` 本地属性
+
+但允许 `修改` 原有的属性
+
+
+
+### Object.freeze
+
+阻止 `添加` 、`修改`、`删除` 本地属性
+
