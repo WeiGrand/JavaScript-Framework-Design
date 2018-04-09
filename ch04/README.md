@@ -495,3 +495,77 @@ Dog.prototype = Object.create(Animal.prototype, {
 
 阻止 `添加` 、`修改`、`删除` 本地属性
 
+
+
+## 真类降临
+
+`ES6` 中的 `Classes` 是在 `JavaScript` 现有的 `原型继承` 的基础上引入的「语法糖」。
+
+因为 `ES6` 的规范并没有被浏览器广泛支持，所以需要通过 [Babel](https://babeljs.io) 编译为 `ES5` 才能在大多数浏览器中运行，
+
+因此可以通过 `Babel` 一窥 `ES6` 中的 `Class` 是如何实现的。
+
+```javascript
+//ES6
+class View {
+	constructor(options) {
+    	this.model = options.model;
+    }
+  
+  	render() {
+    	console.log('render');
+    }
+}
+```
+
+```javascript
+//编译为 ES5 后
+'use strict';
+
+var _createClass = function () { 
+    function defineProperties(target, props) { 
+        for (var i = 0; i < props.length; i++) { 
+            var descriptor = props[i]; 
+            descriptor.enumerable = descriptor.enumerable || false; 
+            descriptor.configurable = true; 
+            if ("value" in descriptor) 
+                descriptor.writable = true; 
+            Object.defineProperty(target, descriptor.key, descriptor); 
+        } 
+    } 
+    return function (Constructor, protoProps, staticProps) { 
+        if (protoProps) 
+            defineProperties(Constructor.prototype, protoProps); 
+        if (staticProps) 
+            defineProperties(Constructor, staticProps); 
+        return Constructor; 
+    }; 
+}();
+
+// 检测是否有用 new 创建实例
+function _classCallCheck(instance, Constructor) { 
+    if (!(instance instanceof Constructor)) { 
+        throw new TypeError("Cannot call a class as a function"); 
+    } 
+}
+
+var View = function () {
+  function View(options) {
+    _classCallCheck(this, View);
+
+    this.model = options.model;
+  }
+
+  _createClass(View, [{
+    key: 'render',
+    value: function render() {
+      console.log('render');
+    }
+  }]);
+
+  return View;
+}();
+```
+
+可以看出 `ES6` 的 `Class` 本质还是构造函数，通过 `_createClass` 将 `原型方法` 和 `静态方法` 通过 `Object.defineProperty` 分别加到 `Class.prototype` 和 `Class` 上。
+
