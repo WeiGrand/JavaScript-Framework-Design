@@ -78,7 +78,105 @@ document.getElementsBySelector = function(selector) {
             
             continue;
         }
+        
+        // tag[attr(~|^$*)=val] 或 [attr(~|^$*)=val] 情况
+        if(token.match(/^(\w*)\[(\w+)([=~\|\^\$\*]?)=?"?([^\]"])*)"?\)$/)) { //书中少些了一个 ] ...
+            var tagName = RegExp.$1; //(\w*)
+            var attrName = RegExp.$2; //(\w+)
+            var attrOperator = RegExp.$3; //([=~\|\^\$\*]?)
+            var attrValue = RegExp.$4; //([^\]"])*)
+            
+            if(!tagName) {
+                tagName = '*';
+            }
+            
+            //和类选择器情况类似
+            var found = new Array;
+            var foundCount = 0;
+            
+            for(var h = 0; h < currentContext.length; h++) {
+                var elements;
+                
+                if(tagName == '*') {
+                    elements = getAllChildren(currentContext[h]);
+                }else {
+                    elements = currentContext[h].getElementsByTagName(tagName);
+                }
+                
+                for(var j = 0; j < elements.length; j++) {
+                    found[foundCount++] = elements[j];
+                }
+            }
+            
+            currentContext = new Array;
+            var currentContextIndex = 0;
+            var checkFunction; //用于筛选元素的方法
+            
+            switch (attrOpertator) {
+                case '=': //相等
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName) == attrValue);
+                    };
+                    break;
+                case '~': //包含 attrValue 单词
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName).match(new RegExp('\\b' + attrValue + '\\b')));
+                    }
+                    break;
+                case '|': //以attrValue 或者 attrValue- 开头
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName).match(new RegExp('^' + attrValue + '-?')));
+                    }
+                    break;
+               	case '^': //以 attrValue 开头
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName).indexOf(attrValue) == 0);
+                    }
+                    break;
+                case '$': //以 attrValue 结尾
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName).lastIndexOf(attrValue) === e.getAttribute(attrName).length - attrValue.length);
+                    }
+                    break;
+                case '*': //包含 attrValue 不一定是一个单词
+                    checkFunction = function(e) {
+                        return (e.getAttribute(attrName).index(attrValue) > -1);
+                    }
+                    break;
+                default:
+                    checkFunction = function(e) {
+                        return e.getAttribute(attrName);
+                    }
+            }
+            
+            //不知道为什么重新赋值一次...
+            currentContext = new Array;
+            var currentContextIndex = 0;
+            
+            for(var k = 0; k < found.length; k++) {
+                if(checkFunction(found[k])) {
+                    currentContext[currentContextIndex++] = found[k];
+                }
+            }
+            
+            continue;
+        }
+        
+        tagName = token;
+        var found = new Array;
+        var foundCount = 0;
+        
+        for(var h = 0; h < currentContext.length; h++) {
+            var elements = currentContext[h].getElementsByTagName(tagName);
+            for(var j = 0; j < elements.length; j++) {
+                found[foundContext++] = elements[i];
+            }
+        }
+        
+        currentContext = found;
     }
+    
+    return currentContext;
 }
 ```
 
