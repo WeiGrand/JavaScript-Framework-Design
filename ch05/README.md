@@ -180,3 +180,57 @@ document.getElementsBySelector = function(selector) {
 }
 ```
 
+
+
+## 选择器引擎涉及的知识点
+
+`选择符` 分为 `4大类16种`:
+
+- `并联选择器`: `逗号`
+- `简单选择器`: `ID`、`标签`、`类`、`属性`、`通配符`
+- `关系选择器`: `亲子(E > F)`、`后代(E F)`、`相邻(E + F)`、`兄长(E ~ F)`
+- `伪类`: `动作伪类`、`目标伪类`、`语言伪类`、`状态伪类`、`结构伪类`、`取反伪类`
+
+> `.abc` 可以用 `[class~=abc]` 来选择
+
+
+
+### 关系选择器
+
+1. 后代选择器
+2. 亲子选择器
+
+```javascript
+function getChildren(el) {
+    if(el.childElementCount) {
+        return [].slice.call(el.children);
+    }
+    
+    //为了兼容 XML
+   	var ret = [];
+    for(var node = el.firstChild; node; node = node.nextSibling) {
+        node.nodeType == 1 && ret.push(node);
+    }
+    
+    return ret;
+}
+```
+
+3. 相邻选择器
+
+```javascript
+function getNext(el) {
+    if('nextElementSibling' in el) {
+        return el.nextElementSibling;
+    }
+    
+    while(el = el.nextSibling) {
+        if(el.nodeType === 1) {
+            return el;
+        }
+    }
+    
+    return null;
+}
+```
+
