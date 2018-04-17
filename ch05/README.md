@@ -219,6 +219,7 @@ function getChildren(el) {
 3. 相邻选择器
 
 ```javascript
+//两个API的区别 https://stackoverflow.com/questions/24226571/what-is-the-difference-between-node-nextsibling-and-childnode-nextelementsibling
 function getNext(el) {
     if('nextElementSibling' in el) {
         return el.nextElementSibling;
@@ -231,6 +232,77 @@ function getNext(el) {
     }
     
     return null;
+}
+```
+
+4. 兄长选择器
+
+```javascript
+function getPrev(el) {
+    if('previousElementSibling' in el) {
+        return el.previousElementSibling;
+    }
+    
+    while(el = el.previousSibling) {
+        if(el.nodeType === 1) {
+            return el
+        }
+    }
+    
+    return null;
+}
+```
+
+> |        | 遍历所有子节点  |     遍历所有子元素     |
+> | ------ | :-------------: | :--------------------: |
+> | 最前的 |   firstChild    |   firstElementChild    |
+> | 最后的 |    lastChild    |    lastElementChild    |
+> | 前面的 | previousSibling | previousElementSibling |
+> | 后面的 |   nextSibling   |   nextElementSibling   |
+> | 上面的 |   parentNode    |     parentElement      |
+> | 长度   |     length      |   childElementCount    |
+
+## 选择器引擎涉及的通用函数
+
+### isXML
+
+`XML` 与 `HTML` 相比没有 `className` 和 `getElementById`，并且 `nodeName` 区分大小写
+
+`Sizzle` 的实现
+
+```javascript
+var isXML = Sizzle.isXML = function(elem) {
+    var documentElement = elem && (elem.ownerDocument || elem).documentElement; //获取 html(根节点) 节点
+    return documentElement ? documentElement.nodeName !== 'HTML' : false; //XML 的根节点就是 HTML
+}
+```
+
+`mootools` 的实现
+
+```javascript
+var isXML = function(document) {
+    return (!!document.xmlVersion) ||
+        (!!document.xml) || 
+        (toString.call(document) == '[object XMLDocument]') ||
+        (document.nodeType == 9 && document.documentElement.nodeName != 'HTML');
+}
+```
+
+利用 `HTMLDocument` 和 `XML` 的 `selectNodes` 判断
+
+```javascript
+var isXML = window.HTMLDocument ? function(doc) {
+    return !(doc instanceof HTMLDocument); //document instanceof HTMLDocument => true
+} : function(doc) {
+    return 'selectNodes' in doc;
+}
+```
+
+功能法，利用 `XML` 不区分大小写的特性
+
+```javascript
+var isXML = function(doc) {
+    return doc.createElement('p').nodeName !== doc.createElememt('P').nodeName;
 }
 ```
 
