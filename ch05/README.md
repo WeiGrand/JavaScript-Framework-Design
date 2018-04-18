@@ -279,6 +279,10 @@ var isXML = Sizzle.isXML = function(elem) {
 
 `mootools` 的实现
 
+> nodeType === 1 => 元素节点
+>
+> nodeType === 9 => document节点
+
 ```javascript
 var isXML = function(document) {
     return (!!document.xmlVersion) ||
@@ -303,6 +307,75 @@ var isXML = window.HTMLDocument ? function(doc) {
 ```javascript
 var isXML = function(doc) {
     return doc.createElement('p').nodeName !== doc.createElememt('P').nodeName;
+}
+```
+
+
+
+### contains
+
+判断 `节点a` 是否包含 `节点b`
+
+```javascript
+//Sizzle 1.10.15
+var rnative = /^[^{]+\{\s*\[native \w/, //判断是否原生方法的正则
+    hasCompare = rnative.test(docElem.compareDocumentPosition),
+    contains = hasCompare || rnative.test(docElem.contains) ?
+    function(a, b) {
+        var adown = a.nodeType === 9 ? a.documentElement : a,
+            bup = b && b.parentNode;
+        return a === bup || !!(bup && bup.nodeType === 1 && (
+        	adown.contains ?
+            adown.contains(bup) : 
+            a.compareDocumentPosition && a.compareDocumentPosition(bup) & 16 // 值为 16 时 就是A 包含 B
+        ));
+    } :
+    function(a, b) {
+        if(b) {
+            while((b = b.parentNode)) {
+                if(b === a) {
+                    return true;
+                }
+            }
+        }
+    }
+```
+
+`compareDocumentPosition` 返回值参考
+
+| interger |      说明      |
+| :------: | :------------: |
+|    0     |    元素一直    |
+|    1     | 节点在不同文档 |
+|    2     |  B 在 A 之前   |
+|    4     |  A 在 B 之前   |
+|    8     |    B 包含 A    |
+|    16    |    A 包含 B    |
+|    32    | 浏览器私有使用 |
+
+> 若两个元素位置满足多种情况，其返回值为多种情况返回值之和
+
+
+
+旧版IE不支持 `compareDocumentPosition` 所以有以下兼容
+
+> `sourceIndex` 为IE的私有实现，跟进元素位置从上倒下，从左到右依次加 1
+>
+> HTML => 0
+>
+> HEAD => 1 HEAD *(HEAD的子元素) => 3
+>
+> BODY => 2
+
+```javascript
+function compareDocumentPosition(a, b) {
+    return a.compareDocumentPosition ? a.compareDocumentPosition(b) :
+    a.contains ? (a != b && a.contains(b) && 16) + //若 contains 返回 true 则返回 16
+        (a != b && b.contains(a) && 8) +
+        (a.sourceIndex >= 0 && b.sourceIndex >= 0 ? //< 0 代表不在 DOM 树
+          (a.sourceIndex < b.sourceIndex && 4) +
+          (a.sourceIndex > b.sourceIndex && 2) : 1) : 0;
+        )
 }
 ```
 
