@@ -379,3 +379,97 @@ function compareDocumentPosition(a, b) {
 }
 ```
 
+
+
+### 节点排序与去重
+
+排序
+
+```javascript
+//让元素节点按它们在 DOM 树出现的顺序排序
+var sortNodes = function(a, b) {
+    var p = 'parentNode',
+        ap = a[p],
+        bp = b[p];
+    
+    if(a === b) {
+        return 0
+    }else if(ap === bp) {
+        while(a.nextSibling) {
+            if(a === b) { //证明 a 在 b 前面 所以不用换位 return -1
+                return -1
+            }
+        }
+        return 1
+    }else if(!ap) { //ap 不存在证明 bp 存在 所以 a 比 b 更高一级 不用换位
+        return -1
+    }else if(!bp) { //bp 不存在证明 ap 存在 所以 b 比 a 更高一级 要换位
+        return 1
+    }
+    
+    //a !== b 且 ap !== bp 的情况下
+    //先各自找到各自的根节点 (HTML)
+    var al = [],
+        ap = a;
+    while(ap && ap.nodeType === 1) {
+        al[al.length] = ap
+        ap = ap[p]
+    }
+    
+    var bl = [],
+        bp = b;
+    while(bp && bp.nodeType === 1) {
+        bl[bl.length] = bp
+        bp = bp[p]
+    }
+    
+    //然后去掉公共的祖先元素
+    ap = al.pop();
+    bp = bl.pop();
+    
+    while(ap === bp) {
+        ap = al.pop();
+    	bp = bl.pop();
+    }
+    
+    if(ap && bp) {
+        while(a.nextSibling) {
+            if(a === b) { //证明 a 在 b 前面 所以不用换位 return -1
+                return -1
+            }
+        }
+        return 1
+    }
+    
+    return ap ? 1 : -1
+}
+
+//usage: [el1, el2, ..., eln].sort(sortNodes);
+```
+
+`Mootools` 的 `Slick` 引擎对节点排序的实现
+
+```javascript
+features.documentSorter = (root.compareDocumentPosition) ? function(a, b) {
+    if(!a.compareDocumentPostion || !b.compareDocumentPosition) 
+        return 0;
+    // 4 代表 a 在 b 前面 其余情况 按位与 4 结果都为 0 ，只需判断 a 是否和 b 相等
+    return a.compareDocumentPosition(b) & 4 ? -1 : a === b ? 0 : 1;
+} : ('sourceIndex' in root) ? function(a, b) {
+    if(!a.sourceIndex || !b.sourceIndex) 
+        return 0
+    return a.sourceIndex - b.sourceIndex;
+} : (document.createRange) ? function(a, b) {
+    if(!a.ownerDocument || !b.ownerDocument) 
+        return 0;
+    var aRange = a.ownerDocument.createRange(),
+        bRange = b.ownerDocument.createRange();
+    
+    aRange.setStart(a, 0);
+    aRange.setEnd(a, 0);
+    bRange.setStart(b, 0);
+    bRange.setEnd(b, 0);
+    return aRange.compareBoundaryPoints(Range.START_TO_END, bRange);
+} : null;
+```
+
