@@ -473,3 +473,74 @@ features.documentSorter = (root.compareDocumentPosition) ? function(a, b) {
 } : null;
 ```
 
+排序加去重
+
+`mass Framework` 的 `Icarus` 引擎的实现
+
+```javascript
+function unique(nodes) {
+    if(nodes.length < 2) {
+        return nodes;
+    }
+    
+    var result = [],
+        array = [],
+        uniqResult = {},
+        node = nodes[0],
+        index,
+        ri = 0,
+        sourceIndex = typeof node.sourceIndex === 'number',
+        compare = typeof node.compareDocumentPosition == 'function';
+    
+    //用于旧版 IE 的 XML
+    //另外通过这个 polyfill 可以加深对 sourceIndex 的理解
+    if(!sourceIndex && !compare) {
+        var all = (node.ownerDocument || node).getElementByTagName('*');
+        for(var index = 0; node = all[index]; index++) {
+            node.setAttribute('sourceIndex', index);
+        }
+        sourceIndex = true;
+    }
+    if(sourceIndex) { //IE opera
+        for(var i = 0, n = nodes.length; i < n; i++) {
+            node = nodes[i];
+            index = (node.sourceIndex || node.getAttribute('sourceIndex')) + 1e8;
+            if(!uniqResult[index]) { //去重
+                (array[ri++] = new String(index))._ = node;
+                uniqResult[index] = 1;
+            }
+        }
+        array.sort(); //sort 的默认排序顺序是根据字符串Unicode码点
+        
+        while(ri)
+            result[--ri] = array[ri]._;
+        
+        return result;
+    }else {
+        nodes.sort(sortOrder);
+        if(sortOrder.hasDuplicate) {
+            for(i = 1; i < nodes.length; i++) {
+                if(nodes[i] === nodes[i - 1]) {
+                    nodes.split(i--, 1);
+                }
+            }
+        }
+        sortOrder.hasDuplicate = false;
+        return nodes;
+    }
+}
+
+function sortOrder(a, b) {
+    if(a === b) {
+        sortOrder.hasDuplicate = true; //决定是否需要去重
+        return 0;
+    }
+    
+    if(!a.compareDocumentPosition || !b.compareDocumentPosition) {
+        return a.compareDocumentPosition ? -1 : 1;
+    }
+    
+    return a.compareDocumentPosition(b) & 4 ? -1 : 1;
+}
+```
+
