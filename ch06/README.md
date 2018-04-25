@@ -32,6 +32,33 @@ function createNameElement(type, name) {
 
 `innerHTML` 不会执行 `script` 标签里面的脚本
 
+```javascript
+//avalon 的解决方法
+//将scirpt节点取出来用 document.createElement('script') 生成的节点代替
+var scriptNode = document.createElement('script');
+var scriptTypes = avalon.oneObject(['', 'text/javascript', 'text/ecmascript', 'application/ecmascript', 'application/javascript']) //将一个以空格或逗号隔开的字符串或数组,转换成一个键值都为1的对象
+
+function fixScript(wrapper) {
+    var els = wrapper.getElementsByTagName('script');
+    if(els.length) {
+        for(var i = 0, el; el = els[i++]) {
+            if(scriptTypes[el.type]) {
+                var neo = scriptNode.cloneNode(false); //「浅拷贝」子元素不被拷贝
+                Array.prototype.forEach.call(el.attributes, function(attr) { //el.attributes 类数组
+                    if(attr && attr.specified) { //specified just means the attribute is present in the original HTML or has been set by script using setAttribute()
+                        neo[attr.name] = attr.value;
+                        neo.setArrribute(attr.name, attr.value);
+                    }
+                })
+                
+                neo.text = el.text;
+                el.parentNode.replaceChild(neo, el);
+            }
+        }
+    }
+}
+```
+
 浏览器会自动补全闭合标签 
 
 (包括`body`、`colgroup`、`dd`、`dt`、`head`、`html`、`li`、`optgroup`、`option`、`p`、`tbody`、`td`、`tfoot`、`th`、`thead`、`tr`)
@@ -87,8 +114,173 @@ if(typeof HTMLElemnt !== 'undefined' && !HTMLElemnt.prototype.insertAdjacentElem
         this.insertAdjacentElement(where, parsedText);
     }
 }
-
 ```
+
+### template
+
+`字符串` 转 `文档碎片`
+
+```javascript
+var a = document.createElement('template')
+a.innerHTML = '<div></div><div></div>';
+a.content
+//#document-fragment 
+//<div></div>
+//<div></div>
+//普通标签没有 content
+var b = document.createElement('div')
+b.innerHTML = '<div></div><div></div>';
+b.content
+//undefined
+```
+
+### avalon 的 parseHTML 实现
+
+```javascript
+//带长度限制的缓存体
+function Cache(size) {
+    var keys = [];
+    var cache = {};
+    
+    this.get = function(key) {
+        return cache[key + ' '];
+    }
+    
+    this.put = function(key, value) {
+        if(keys.push(key + ' ') > size) { //原来 push 会返回数组长度，一直没留意...
+            delete cache[keys.shift()]; 
+        }
+        
+        return (cache[key + ' '] = value);
+    }
+    
+    return this;
+}
+
+var fixScript = require('./fixScript'); //上文提到的解决 script 标签执行问题的方法
+
+var rtagName = /<([\w+:]+)/;
+var rxhtml = /<(?!area|br|col|embed|hr|img|input|link|meta|param)(([\w:]+)[^>]*)\/>/ig; //(?!exp) 匹配后面跟的不是exp的位置 
+var rhtml = /<|&#?\w;/;
+var htmlCache = new Cache(128);
+var templateHook = document.createElement('template');
+
+//tagHooks 和 svgHooks 用于嵌套的母元素 有点多 懒得打
+
+avalon.parseHTML = function(html) {
+    var fragment = document.createDocumentFragment(), firstChild;
+    
+    if(typeof html !== 'string') {
+        return fragment;
+    }
+    
+    if(!rhtml.test(html)) {
+        fragment.appendChild(document.createTextNode(html));
+        return fragment;
+    }
+    
+    html = html.replace(rxhtml, '<$1></$2>').trim();
+    var hasCache = htmlCache.get(html);
+    if(hasCache) {
+        return hasCache.cloneNode(true);
+    }
+    
+    var tag = (rtagName.exec(html) || ['', ''])[1].toLowerCase();
+    var wrapper = svgHooks[tag];
+    if(wrapper) { // svgHooks
+        wrapper.innerHTML = html;
+    }else if(templateHook) {
+        templateHook.innerHTML = html;
+        wrapper = templateHook.content;
+    }else {
+        wrapper = tagHooks[tag] || tagHooks._default; //div
+        wrapper.innerHTML = html;
+    }
+    
+    fixScript(wrapper);
+    
+    if(templateHook) {
+        fragment = wrapper;
+    }else {
+        while(firstChild = wrapper.firstChild) {
+            fagment.appendChild(firstChild);
+        }
+    }
+    
+    if(html.length < 1024) {
+        htmlCache.put(html, fragment.cloneNode(true));
+    }
+    
+    return fragment;
+}
+```
+
+
+
+## 节点的插入
+
+一般用 `insertBefore`、`appendChild`、`replaceChild`
+
+一般工具库还会有 `insertAfter`
+
+```javascript
+function insertAfter(newElement, targetElement) {
+    var parent = targetElement.parentNode;
+    if(parent.lastChild == targetElement) {
+        parent.appendChild(newElement);
+    }else {
+        parent.insertBefore(newElement, targetElement.nextSiblings);
+    }
+}
+```
+
+非一般的还有 `insertAdjacentHTML`、`insertAdjacentText`、`insertAdjacentElement`
+
+参数都相同，第一个是插入位置，第二个是插入的内容
+
+### `IE` 的 `applyElement` 实现
+
+`applyElement` 用法
+
+- `neo.applyElement(old, 'outside')` 为当前元素提供一个父节点，此父节点将动态插入原节点的父亲底下
+- `neo.applyElement(old, 'inside')` 为当前元素插入一个新节点，然后将它之前的孩子挪到新节点底下
+
+```javascript
+if(!document.documentElement.applyElement && typeof HTMLElement !== 'undefined') {
+    HTMLElement.prototype.removeNode = function(deep) {
+        var parent = this.parentNode;
+        var childNodes = this.childNodes;
+        var fragment = this.ownerDocument.createElementFragment();
+        while(childNodes.length) {
+            fragment.appendChild(childNodes[0]);
+        }
+        
+        if(!!deep) { //如果 deep 为 true 整个删除
+            parent.removeChild(this);
+        }else { // 只删除目标节点，而保留子节点
+            parent.replaceChild(this, fragment);
+        }
+    }
+    
+    HTMLElement.prototype.applyElement = function(newNode, where) {
+        newNode = newNode.removeNode(false);
+        var range = this.ownerDocument.createRange();
+        var where = ((where || 'outside').toLowerCase());
+        var method = where === 'inside' ? 'selectNodeContents' : where === 'outside' ? 'selectNode' : 'error';
+        if(method === 'error') {
+            throw new Error('DOMException.NOT_SUPPORTED_ERR(9)');
+        }else {
+            range[method](this);
+            range.surroundContents(newNode);
+            range.detach();
+        }
+        
+        return newNode;
+    }
+}
+```
+
+
 
 
 
