@@ -282,6 +282,113 @@ if(!document.documentElement.applyElement && typeof HTMLElement !== 'undefined')
 
 
 
+## 节点的复制
+
+### jQuery 的实现
+
+步骤大致为：
+
+1. 复制节点的基本属性
+2. 复制节点的数据和事件
+3. 将 script 标记为已执行
+
+```javascript
+//dataAndEvents 是否复制数据和事件
+//deepDataAndEvents 是否它的子孙的数据和事件
+jQuery.fn.clone = function(dataAndEvents, deepDataAndEvents) {
+	dataAndEvents = dataAndEvents == null ? false : dataAndEvents;
+    deepDataAndEvents = deepDataAndEvents == null ? dataAndEvents : deepDataAndEvents;
+    return this.map(function() {
+        return jQuery.clone(this, dataAndEvents, deepDataAndEvents);
+    })
+}
+```
+
+```javascript
+support = {
+    html5Clone: document.createElement("nav").cloneNode( true ).outerHTML !== "<:nav></:nav>"; // <:nav></:nav> IE创建无法识别的element会变成这样
+}
+var nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figcaption|figure|footer|" +
+		"header|hgroup|mark|meter|nav|output|progress|section|summary|time|video"
+var rnoshimcache = new RegExp("<(?:" + nodeNames + ")[\\s/>]", "i");
+
+//获取节点下所有子孙节点
+function getAll( context, tag ) {
+	var elems, elem,
+		i = 0,
+		found = typeof context.getElementsByTagName !== core_strundefined ? context.getElementsByTagName( tag || "*" ) :
+			typeof context.querySelectorAll !== core_strundefined ? context.querySelectorAll( tag || "*" ) :
+			undefined;
+
+	if ( !found ) {
+		for ( found = [], elems = context.childNodes || context; (elem = elems[i]) != null; i++ ) {
+			if ( !tag || jQuery.nodeName( elem, tag ) ) {
+				found.push( elem );
+			} else {
+				jQuery.merge( found, getAll( elem, tag ) );
+			}
+		}
+	}
+
+	return tag === undefined || tag && jQuery.nodeName( context, tag ) ?
+		jQuery.merge( [ context ], found ) :
+		found;
+}
+
+jQuery.clone = function(elem, dataAndEvents, deepDataAndEvents) {
+    var clone, 
+        destElements, 
+        srcElements, 
+        i, 
+        node,
+        inPage = jQuery.contains(elem.ownerDocument, elem);
+
+    if(support.html5Clone || jQuery.isXMLDoc(elem) || !rnoshimcache.test("<" + elem.nodeName + ">")) { //如果支持 cloneNode 就用 cloneNode
+        clone = elem.cloneNode(true);
+    }else {
+        fragmentDiv.innerHTML = elem.outerHTML;
+        fragmentDiv.removeChild(clone = fragmentDiv.firstChild);
+    }
+    
+    if((!support.noCloneEvent || !support.noCloneCheck) && (elem.nodeType === 1 || elem.nodeType === 11)) {
+        //IE6~8 使用 attachEvent 添加的事件也会被复制
+        //input[type=radio] 的 checked 属性可能无法复制
+        destElements = getAll(clone);
+        srcElements = getAll(elem);
+        
+        for(i = 0; (node = srcElement[i] != null; ++i)) {
+            if(destElement[i]) {
+                fixCloneNodeIssues(node, destElements[i]);
+            }
+        }
+    }
+    
+    if(dataAndEvents) {
+        if(deepDataAndEvents) {
+            srcElements = srcElements || getAll(elem);
+            destElements = destElements || getAll(elem);
+            
+            for(i = 0; (node = srcElement[i] != null; ++i)) {
+                if(destElement[i]) {
+                    cloneCopyEvent(node, destElements[i]);
+                }
+            }
+        }else {
+            cloneCopyEvent(elem, clone);
+        }
+    }
+    
+    //复制的 script 和 innerHTML 插入的 script 一样，不会执行脚本或发出请求
+    destElements = getAll(clone, "script");
+    if(destElements.length > 0) {
+        setGlobalEval(destElements, !inPage & getAll(elem, "script"));
+    }
+    
+    destElements = srcElements = node = null; //防止内存泄露
+    
+    return clone;
+}
+```
 
 
-   
+
