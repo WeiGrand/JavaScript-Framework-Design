@@ -306,8 +306,20 @@ jQuery.fn.clone = function(dataAndEvents, deepDataAndEvents) {
 
 ```javascript
 support = {
-    html5Clone: document.createElement("nav").cloneNode( true ).outerHTML !== "<:nav></:nav>"; // <:nav></:nav> IE创建无法识别的element会变成这样
+    html5Clone: document.createElement("nav").cloneNode( true ).outerHTML !== "<:nav></:nav>", // <:nav></:nav> IE创建无法识别的element会变成这样
+    noCloneEvent: true //不会复制事件, 默认为 true
 }
+
+var div = document.createElement('div');
+
+if(div.attachEvent) {
+    div.attachEvent('onclick', function() {
+        support.onCloneEvent = false;
+    });
+    
+    div.cloneNode(true).click(); //如果复制了事件，noCloneEvent将变为 false
+}
+
 var nodeNames = "abbr|article|aside|audio|bdi|canvas|data|datalist|details|figcaption|figure|footer|" +
 		"header|hgroup|mark|meter|nav|output|progress|section|summary|time|video"
 var rnoshimcache = new RegExp("<(?:" + nodeNames + ")[\\s/>]", "i");
@@ -333,6 +345,59 @@ function getAll( context, tag ) {
 	return tag === undefined || tag && jQuery.nodeName( context, tag ) ?
 		jQuery.merge( [ context ], found ) :
 		found;
+}
+
+//解决（IE下）复制节点的一些bug
+//1. attachEvent 添加的事件会被复制
+//2. 无法复制 object 的子节点
+//3. 无法复制 checkbox 和 radio 的 checked/defaultChecked 属性和 value
+//4. 无法复制 option 的 selected/defaultSelected 属性
+//5. 无法复制 input[type="text"] 和 textarea 的 defaultValue 属性
+function fixCloneNodeIssues(src, dest) {
+    var nodeName,
+        e,
+        data;
+    
+    //只处理元素节点
+    if(dest.nodeType !== 1) {
+        return;
+    }
+    
+    nodeName = dest.nodeName.toLowerCase();
+    
+    if(!support.noCloneEvent && dest[jQuery.expando]) { //jQuery.expando 是类似 jQuery1113019103134822535606 (jQuery + 时间戳) 的 uuid 元素如果有这个 key 代表 被 jQuery 绑定过事件或数据
+        data = jQuery._data(dest);//"{"data":{"foo":"123"},"events":{"click":[{"type":"click","origType":"click","guid":207,"namespace":""},{"type":"click","origType":"click","guid":208,"namespace":""}]}, "handle: f(a)"}"
+        
+        for(e in data.events) {
+            jQuery.removeEvent(dest, e, data.handle);
+        }
+        
+        dest.removeAttribute(jQuery.expando);
+    }
+    
+    //IE 下通过 cloneNode 无法复制 script 的 text
+    if(nodeName === 'script' && dest.text !== src.text) {
+        disableScript(dest).text = src.text; // 阻止 script 的执行，原理是将 script 的 type 属性改为不会立即执行的 type
+        restoreScript(dest); //还原 type
+    }else if(nodeName === 'object') { //同样是IE的bug，无法复制 object 的子节点
+        if(dest.parentNode) {
+            dest.outerHTML = src.outerHTML;
+        }
+        
+        if(support.html5Clone && (src.innerHTML && jQuery.trim(dest.innerHTML))) {
+            dest.innerHTML = src.innerHTML;
+        }
+    }else if(nodeName === 'input' && rcheckableType.test(src.type)) { //checkbox|radio
+        dest.defaultChecked = dest.checked = src.checked;
+        
+        if(dest.value !== src.value) {
+            dest.value = src.value;
+        }
+    }else if(nodeName === 'option') {
+        dest.defaultSelected = dest.selected = src.defaultSelected;
+    }else if(nodeName === 'input' || nodeName === 'textarea') {
+        dest.defaultValue = src.defaultValue;
+    }
 }
 
 jQuery.clone = function(elem, dataAndEvents, deepDataAndEvents) {
@@ -387,6 +452,16 @@ jQuery.clone = function(elem, dataAndEvents, deepDataAndEvents) {
     destElements = srcElements = node = null; //防止内存泄露
     
     return clone;
+}
+```
+
+`jQuery` 的实现因为要兼容 IE 所以显得很复制，对于不需要兼容 IE 的项目可以直接用 `zepto` 的实现
+
+```javascript
+clone: function() {
+    return this.map(function() {
+        return this.cloneNode(true);
+    });
 }
 ```
 
