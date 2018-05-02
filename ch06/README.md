@@ -1,5 +1,10 @@
 # 节点模块
 
+- [节点的创建](#节点的创建)
+- [节点的插入](#节点的插入)
+- [节点的复制](#节点的复制)
+- [节点的移除](#节点的移除)
+
 ## 节点的创建
 
 ### createElement
@@ -467,3 +472,103 @@ clone: function() {
 
 
 
+## 节点的移除
+
+一个不需要知道父节点，移除节点的方法
+
+```javascript
+var f = document.createDocumentFragment();
+function clearChild(node) {
+    f.appendChild(node);
+    f.removeChild(node);
+    return node;
+}
+```
+
+```javascript
+var removeNode = IE6 || IE7 ? function() {
+    var d;
+    return function(node) {
+        if(node && node.tagName != 'BODY') {
+            d = d || document.createElement('div');
+            d.appendChild(node);
+            d.innerHTML = '';
+        }
+    }() : function(node) {
+        if(node && node.parentNode && node.tagName != 'BODY') {
+            node.parentNode.removeChild(node);
+        }
+    }
+}
+```
+
+IE6~8 存在 `DOM超空间`，当元素移出 `DOM树`，又有 `JavaScript` 关联时元素不会消失，被保存在 `超空间` 中，可以用 `parentNode` 来判定元素是否存在 `超空间`
+
+jQuery提供了3种移除节点的方法：`remove`、`empty`、`detach`，其中 `detach` 只是用于临时移出 `DOM树`，不会移除数据和事件
+
+```javascript
+'remove,empty,detach'.replace(/[^, ]/g, function(method) {
+    $.fn[method] = function() {
+        var isRemove = method !== 'empty'; ['remove', 'detach']
+        for(var i = 0, node; node = this[i++]) {
+            if(node.nodeType === 1) {
+                var array = $.slice(node[TAGS]('*')).concat(isRemove ? node : []);
+                if(method !== 'detach') {
+                    array.forEach(cleanNode);
+                }
+            }
+            
+            if(isRemove) {
+                if(node.parentNode) {
+                    node.parentNode.removeChild(node);
+                }
+            }else {
+                while(node.firstChild) {
+                    node.removeChildl(node.firstChild);
+                }
+            }
+        }
+        
+        return this;
+    }
+});
+```
+
+
+
+实现一个清空元素内部的 `API`
+
+- 传统方式
+
+  ```javascript
+  function clearNode(node) {
+      while(node.firstChild) {
+          node.removeChild(node.firstChild)''
+      }
+      
+      return node;
+  }
+  ```
+
+- 使用 `deleteContents`
+
+  ```javascript
+  var deleteRange = document.createRange();
+  function clearChild(node) {
+      deleteRange.setStartBefore(node.firstChild);
+      deleteRange.setEndAfter(node.lastChild);
+      deleteRange.deleteContents();
+      return node;
+  }
+  ```
+
+- 使用 `textContent`
+
+  ```javascript
+  function clearChild(node) {
+      node.textContent = '';
+      return node;
+  }
+  ```
+
+  ​
