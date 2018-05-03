@@ -571,4 +571,114 @@ jQuery提供了3种移除节点的方法：`remove`、`empty`、`detach`，其�
   }
   ```
 
-  ​
+
+
+
+### 回调的实现
+
+#### Mutation Event
+
+- `DOMNodeRemoved`: 节点被包含其的父节点移除时触发
+
+- `DOMNodeRemovedFromDocument`: 节点被包含其的父节点或其祖先节点移除时触发，显然这个API更好用
+
+  ```javascript
+  if(window.chrome) {
+      var root = documeny.documentElement;
+      root.addEventListener('DOMNodeRemovedFromDocument', function(e) {
+          setTimeout(function() { //判定永久移除还是临时的节点挪动
+              if(root.contains(e.target)) { //如果还在DOM树，说明是永久删除
+                  // 执行回调
+              }
+          })
+      })
+  }
+  ```
+
+
+
+#### Mutaion Observer
+
+监视 `DOM` 变动的接口，异步触发
+
+```javascript
+//兼容处理
+var MutationObserver = window.MutationObserver
+|| window.WebKitMutationObserver
+|| window.MozMutationObserver;
+
+var observerMutationSupoort = !!MutationObserver;
+```
+
+
+
+```javascript
+var observer = new MutationObserver(callback);
+
+//接受两个参数
+//监听的起点，配置对象（要监听那些类型的变动 可配置的值参考 https://developer.mozilla.org/zh-CN/docs/Web/API/MutationObserver#MutationObserverInit）
+observer.observe(document.documentElement, {
+    childList: true,
+    attributes: true
+});
+```
+
+使用 `Mutation Observer` 实现一个新的 `remove` 监听方法
+
+```javascript
+function onRemove(element, onDetachCallback) {
+    var observer = new MutationObserver(function() {
+        function isDetached(el) {
+            if(el.parentNode === document) { //html
+                return false
+            }else if(el.parentNode === null) {
+                return true
+            }else {
+                return isDetached(el.parentNode);
+            }
+        }
+        
+        if(isDetached(element)) {
+            onDetachCallback();
+        }
+    });
+    
+    observer.observe(document, {
+        childList: true,
+        subtree: true
+    })
+}
+```
+
+
+
+#### 更多候选方案
+
+方案一：自定义元素
+
+https://www.html5rocks.com/zh/tutorials/webcomponents/customelements
+
+`自定义元素的生命周期方法`
+
+| 回调名称                                           | 调用时间点                 |
+| -------------------------------------------------- | -------------------------- |
+| createdCallback                                    | 创建元素实例               |
+| attachedCallback                                   | 向文档插入实例             |
+| detachedCallback                                   | 从文档中移除实例           |
+| attributeChangedCallback(attrName, oldVal, newVal) | 添加，移除，或修改一个属性 |
+
+```javascript
+var tags = {};
+function byCustomElement(name) {
+    if(tag[name]) 
+        return;
+    var prototype = Object.create(HTMLElement.prototype);
+    tags[name] = prototype;
+    prototype.detachedCallback = function() {
+        //执行回调
+    }
+    
+    document.registerElement(name, pprototype);
+}
+```
+
