@@ -682,3 +682,112 @@ function byCustomElement(name) {
 }
 ```
 
+方案二：使用 [Mutation Event](#mutation-event)
+
+方案三：IE9或以上可以使用暴露的 `Node构造器` ，改写一些常用的 `DOM` 操作方法
+
+```javascript
+function byRewritePrototype() {
+    if(byRewritePrototype.execute) {
+        return;
+    }
+    
+    byRewritePrototype.execute = true;
+    
+    var p = Node.prototype;
+    function rewrite(name, fn) {
+        var cb = p[name];
+        p[name] = function(a, b) {
+            return fn.call(this, cb, a, b);
+        }
+    }
+    
+    rewrite('removeChild', function(fn, a) {
+        fn.call(this, a);
+        
+        if(a.nodeType === 1) {
+            setTimeout(function() {
+                doSomethingWith(a);
+            });
+        }
+        
+        return a;
+    });
+    
+    rewrite('replaceChild', function(fn, a, b) {
+        fn.call(this, a, b);
+        
+        if(a.nodeType === 1) {
+            setTimeout(function() {
+                doSomethingWith(a);
+            });
+        }
+        
+        return a;
+    });
+    
+    rewrite('innerHTML', function(fn, html) {
+        var all = this.getElementsByTagName('*');
+        fn.call(this, a, b);
+        doSomethingWith(all);
+    });
+    
+    rewrite('innerHTML', function(fn, html) {
+        var all = this.getElementsByTagName('*');
+        fn.call(this, a, b);
+        doSomethingWith(all);
+    });
+    
+    rewrite('appendChild', function(fn, a) {
+        fn.call(this, a);
+        
+        if(a.nodeType === 1 && this.nodeType === 11) { // 11 => DocumentFragment 节点 如果 this.nodeType 为 1 a 节点并没有被移除
+            setTimeout(function() {
+                doSomethingWith(a);
+            });
+        }
+        
+        return a;
+    });
+    
+    rewrite('insertBefore', function(fn, a) {
+        fn.call(this, a);
+        
+        if(a.nodeType === 1 && this.nodeType === 11) {
+            setTimeout(function() {
+                doSomethingWith(a);
+            });
+        }
+        
+        return a;
+    });
+}
+```
+
+方案四：简单粗暴的轮询
+
+```javascript
+var checkDisposeNodes = {};
+var checkID = 0;
+
+function byPolling(dom) {
+    avalon.Array.ensure(checkDisposeNodes, dom); // https://rubylouvre.gitbooks.io/avalon/content/api.html#arrayensure
+    
+    if(!checkID) {
+        checkID = setInterval(function () {
+            for(var i = 0, el; el = checkDisposeNodes[i++];) {
+                if(false === doSomethingWith(el)) {
+                    avalon.Array.removeAt(checkDisposeNodes, i);
+                    --i;
+                }
+            }
+            
+            if(checkDisposeNodes.length === 0) {
+                clearInterval(checkID);
+                checkID = 0;
+            }
+        }, 1000);
+    }
+}
+```
+
