@@ -4,6 +4,7 @@
 - [节点的插入](#节点的插入)
 - [节点的复制](#节点的复制)
 - [节点的移除](#节点的移除)
+- [innerHTML、innerText、outerHTML、outerText 的兼容处理](#innerHTML、innerText、outerHTML、outerText 的兼容处理)
 
 ## 节点的创建
 
@@ -787,6 +788,117 @@ function byPolling(dom) {
                 checkID = 0;
             }
         }, 1000);
+    }
+}
+```
+
+
+
+##innerHTML、innerText、outerHTML、outerText 的兼容处理
+
+`innerText` 和 `textContent` 的区别
+
+- `textContent` 会获取所有元素的 `content`，包括 `<script>` 和 `<style>` 元素
+
+  ```html
+  <p>p-content：<a href="" rel="nofollow">a-content </a><script>script-content</script></p>
+  ```
+
+  ```javascript
+  $0.textContent //p-content：a-content script-content
+  $0.innerText //p-content：a-content 
+  ```
+
+- `innerText` 不会获取 `display: none` 的元素
+
+- `innerText` 会触发 `reflow`
+
+- `innerText` 返回值会被格式化 （剔除格式信息和合并连续的空格，因此\t、\r、\n和连续的空格生效。）
+
+  ```html
+  <p>1           2</p>
+  ```
+
+  ```javascript
+  $0.textContent //1           2
+  $0.innerText //1 2
+  ```
+
+
+
+各兼容方案
+
+```javascript
+var p = typeof HTMLElement !== 'undefine' && HTMLElement.prototype;
+
+if(!('outerHTML' in p)) {
+    p.__defineSetter__('outerHTML', function(s) {
+        var r = this.ownerDocument.createRange();
+        
+        r.setStartBefore(this);
+        
+        var df = r.createContextualFragment(s);
+        
+        this.parentNode.replaceChild(df, this);
+        
+        return s;
+    });
+    
+    p.__defineGetter__('outerHTML', function() {
+        var a = this.attributes, str = '<' + this.tagName, i = 0;
+        
+        for(; i < a.length; i++) {
+            if(a[i].specified) {
+                str += ' ' + a[i].name + '=' + JSON.stringify(a[i].value);
+            }
+        }
+        
+        if(!this.canHaveChildren) {
+            return str + '/>';
+        }
+        
+        return str + '>' + this.innerHTML + '</' + this.tagName + '>';
+    });
+    
+    p.__defineGetter__('canHaveChildren', function() {
+        return !/^(area|base|basefont|col|frame|hr|img|br|input|isindex|link|meta|param)$/i.test(this.tagName);
+    });
+    
+    if(!('innerText' in p)) {
+        p.__defineSetter__('innerText', function(sText) {
+            var parsedText = document.createTextNode(sText);
+            
+            this.innerHTML = '';
+            this.appendChild(parsedText);
+            
+            return parsedText;
+        });
+        
+        p.__defineGetter__('innerText', function() {
+            var r = this.ownerDocument.createRange();
+            
+            r.selectNodeContents(this);
+            
+            return r.toString();
+        });
+    }
+    
+    if(!('outerText' in p)) {
+        p.__defineSetter__('outerText', function(sText) {
+            var parsedText = document.createTextNode(sText);
+            
+            this.parentNode.replaceChild(parsedText, this);
+            
+            return parsedText;
+        });
+        
+        p.__defineGetter__('outerText', function() {
+            var r = this.ownerDocument.createRange();
+            
+            r.selectNodeContents(this);
+            
+            return r.toString();
+        });
     }
 }
 ```
