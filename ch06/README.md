@@ -4,7 +4,7 @@
 - [节点的插入](#节点的插入)
 - [节点的复制](#节点的复制)
 - [节点的移除](#节点的移除)
-- [innerHTML、innerText、outerHTML、outerText 的兼容处理](#innerHTML、innerText、outerHTML、outerText 的兼容处理)
+- [`innerHTML、innerText、outerHTML、outerText`的兼容处理](#innerHTML、innerText、outerHTML、outerText 的兼容处理)
 
 ## 节点的创建
 
@@ -794,7 +794,7 @@ function byPolling(dom) {
 
 
 
-##innerHTML、innerText、outerHTML、outerText 的兼容处理
+##`innerHTML、innerText、outerHTML、outerText`的兼容处理
 
 `innerText` 和 `textContent` 的区别
 
@@ -826,7 +826,7 @@ function byPolling(dom) {
 
 
 
-各兼容方案
+各 API 兼容方案
 
 ```javascript
 var p = typeof HTMLElement !== 'undefine' && HTMLElement.prototype;
@@ -901,5 +901,43 @@ if(!('outerHTML' in p)) {
         });
     }
 }
+
+// nodeValue 在节点为 文本节点 和 注释节点 的时候存在
+function outerHTML(el) {
+    switch(el.nodeType + '') {
+        case '1':
+        case '9':
+            return 'xml' in el ? el.xml : new XMLSerializer().serializeToString(el);
+        case '3':
+            return el.nodeValue;
+        case '8':
+            return '<!--' + el.nodeValue + '-->';
+        default:
+            return '';
+    }
+}
+
+function innerHTML(el) {
+    for(var i = 0, c, ret = []; c = el.childNodes[i++];) {
+        ret.push(outerHTML(c));
+    }
+    
+    return ret.join('');
+}
+
+function getText() {
+    
+    return function getText(nodes) {
+        for(var i = 0, ret = '', node; node = nodes[i++]) {
+            if(node.nodeType === 3 || node.nodeType === 4) { // 4 的情况已经废弃
+                ret += node.nodeValue;
+            }else if(node.nodeType !== 8) {
+                ret += getText(node.childNodes);
+            }
+        }
+    }
+}()
 ```
+
+
 
