@@ -941,3 +941,69 @@ function getText() {
 
 
 
+## iframe 元素
+
+- 隐藏边框，使用 `frameBorder`
+
+  ```html
+  <iframe frameBorder=0></iframe>
+  ```
+
+  或
+
+  ```javascript
+  var iframe = document.createElement('iframe');
+  iframe.frameBorder = 0;
+  ```
+
+- 去掉滚动条
+
+  ```javascript
+  iframe.scrolling = 'no';
+  ```
+
+- 设置透明
+
+  1. 设置 `allowTransparency` 为 `true`
+  2. `iframe` 中的文档，`background-color` 或 `body` 的 `bgColor` 设置为 `transparent`
+
+  ```html
+  <iframe allowTransparency="true" src="transparent.htm"></iframe>
+  // transparent.htm
+  <body bgColor="transparent"></body>
+  ```
+
+- 获取 `iframe` 中的 `window` 对象
+
+  ```javascript
+  iframe.contentWindow
+  ```
+
+- 获取 `iframe` 中的 `文档` 对象
+
+  ```javascript
+  iframe.contentDocument || iframe.contentWindow.document;
+  ```
+
+- 判断页面是否在 `iframe` 内
+
+  ```javascript
+  window.onload = function() {
+      if(window != window.top || window.frameElement !== null || window.eval !== top.eval) {
+          // 在
+      }
+  }
+  ```
+
+- 判断 `iframe` 是否加载完毕
+
+  ```javascript
+  if(iframe.addEventListener) {
+      iframe.addEventListener('load', callback, false);
+  }else {
+      iframe.attachEvent('onload', callback);
+  }
+  ```
+
+  > 如果是动态创建的 `iframe`，`webkit` 系统的浏览器可能会出现二次触发 `onload` ⌚事件，可以在插入 `body` 之前给 `iframe` 设置一个空的 `src`解决
+
