@@ -103,3 +103,142 @@ jQuery.extend({
 })
 ```
 
+
+
+## jQuery 的第2代缓存系统
+
+`jQuery` 第2代缓存系统的实现方法是 `valueOf` 的重写
+
+```javascript
+function Data() {
+    this.cache = {};
+}
+
+Data.uid = 1;
+
+Data.prototype = {
+    // owner 为 元素节点、文档对象、window对象
+    locker: function(owner) {
+        var oValueOf,
+        
+        // 检测 valueOf 是否被重写，返回 Object 证明没有
+        unlock = owner.valueOf(Data);
+        
+        if(typeof unlock !== 'string') {
+            unlock = jQuery.expando + Data.uid++;
+            oValueOf = owner.valueOf;
+            
+            Object.defineProperty(owner, 'valueOf', {
+                value: function(pick) {
+                    if(pick === Data) {
+                        return unlock;
+                    }
+                    
+                    return oValueOf.apply(owner);
+                }
+            });
+        }
+        
+        if(!this.cache[unlock]) {
+            this.cache[unlock] = {};
+        }
+        
+        return unlock;
+    },
+    
+    set: function(owner, data, value) {
+        var prop,
+            cache,
+            unlock;
+        
+        unlock = this.locker(owner);
+        cache = this.cache[unlock];
+        
+        if(typeof data === 'string') {
+            cache[data] = value;
+        }else { // data 为 对象 的情况
+            if(jQuery.isEmptyObject(cache)) { // 如果没添加过任何对象
+                cache = data;
+            }else {
+                for(prop in data) {
+                    cache[prop] = data[prop];
+                }
+            }
+        }
+        
+        this.cache[unlock] = cache;
+        
+        return this;
+    },
+    
+    get: function(owner, key) {
+        var cache = this.cache[this.locker(owner)];
+        
+        return key === undefined ? cache : cache[key];
+    },
+    
+    access: function(owner, key, value) {
+        if(key === undefined || ((key && typeof key === 'string') && value === undefined)) {
+            return this.get(owner, key);
+        }
+        
+        this.set(owner, key, value);
+        return value !== undefined ? value : key;
+    },
+    
+    remove: function(owner, key) {
+        var unlock = this.locker(owner),
+            cache = this.cache[unlock)];
+        
+        delete cache[key];
+        
+        this.cache[unlock] = cache;
+    },
+    
+    // 检查是否缓存了数据
+    hasData: function(owner) {
+        return !jQuery.isEmptyObject(this.cache[this.locker(owner)]);
+    },
+    
+    // 删除缓存数据
+    discard: function(owner) {
+        delete this.cache[this.locker(owner)];
+    }
+}
+
+var data_user = new Data(), // 用户数据
+    data_priv = new Data(); // 私有数据
+
+jQuery.extend({
+    expando: 'jQuery' + (core_version + Math.random()).replace(/\D/g, ''),
+    
+    acceptData: function() {
+        return true;
+    },
+    
+    hasData: function(elem) {
+        return data_user.hasData(elem) || data_priv.hasData(elem);
+    },
+    
+    // 读写 用户数据
+    data: function(elem, name, data) {
+        return data_user.access(elem, name, data);
+    },
+    
+    // 删 用户数据
+    removeData: function(elem, name) {
+        return data_user.remove(elem, name);
+    },
+    
+    // 读写 私有数据
+    _data: function(elem, name, data) {
+        return data_priv.access(elem, name, data);
+    },
+    
+    // 删 私有数据
+    _removeData: function(elem, name) {
+        return data_priv.remove(elem, name);
+    }
+})
+```
+
