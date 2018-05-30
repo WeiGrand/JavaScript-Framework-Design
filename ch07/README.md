@@ -242,3 +242,206 @@ jQuery.extend({
 })
 ```
 
+
+
+## jQuery 的第3代缓存系统
+
+基于 `Object.defineProperty`
+
+```javascript
+function Data() {
+    this.expando = jQuery.expando + Data.uid++;
+}
+
+Data.uid = 1;
+
+Data.prototype = {
+    cache: function(owner) {
+        var value = owner[this.expando];
+        
+        if(!value) {
+            value = {};
+            
+            // 元素节点、window、document 才会进入此分支
+            if(acceptData(owner)) {
+                
+                if(owner.nodeType) {
+                    owner[this.expando] = value;
+                }else {
+                    Object.defineProperty(owner, this.expando, {
+                        value: value,
+                        configurable: true
+                    })
+                }
+            }
+        }
+        
+        return value;
+    },
+    
+    set: function(owner, data, value) {
+        var prop,
+            cache = this.cache(owner);
+        
+        if(typeof data === 'string') {
+            cache[jQuery.camelCase(data)] = value;
+        }else {
+            for(prop in data) {
+                cache[jQuery.camelCase(prop)] = data[prop];
+            }
+        }
+        
+        return cache;
+    },
+    
+    //... 省略一些方法
+    
+    hasData: function(owner) {
+        var cache = owner[this.expando];
+        
+        return cache !== undefined && !jQuery.isEmptyObject(cache);
+    }
+}
+```
+
+其中上面的 `acceptData` 实现
+
+```javascript
+var acceptData = function( owner ) {
+  return owner.nodeType === 1 || owner.nodeType === 9 || !( +owner.nodeType );
+};
+```
+
+`isEmptyObject` 的实现
+
+```javascript
+function isEmptyObject(obj) {
+    var name;
+    
+    for(name in obj) {
+        return false;
+    }
+    
+    return true;
+}
+```
+
+
+
+## 有容量限制的缓存系统
+
+一个简单的带容量限制的缓存系统
+
+```javascript
+function createCache(size) {
+    var keys = [];
+    
+    function cache(key, value) {
+        if(keys.push(key + '') > size) {
+            delete cache[keys.shift()];
+        }
+        
+        return (cache[key + ''] = value);
+    }
+    
+    return cache;
+}
+```
+
+
+
+`Least Recently User(LRU) 近期最少使用` 缓存算法
+
+```javascript
+// https://github.com/rsms/js-lru
+
+function LRU(maxLength) {
+    this.size = 0;
+    this.limit = maxLength;
+    this.head = this.tail = void 0;
+    this._keymap = {};
+}
+
+LRU.prototype.put = function(key, value) {
+    var entry = {
+        key: key,
+        value: value
+    };
+    
+    this._keymap[key] = entry;
+    
+    if(this.tail) {
+        this.tail.newer = entry;
+        entry.older = this.tail;
+    }else {
+        this.head = entry;
+    }
+    
+    this.tail = entry;
+    
+    if(this.size === this.limit) {
+        this.shift();
+    }else {
+        this.size++;
+    }
+    
+    return value;
+}
+
+LRU.prototype.shift = function() {
+    var entry = this.head;
+    
+    if (entry) {
+      // 当数据不止一个时
+      if (this.head.newer) {
+        // 把倒数第二个数据设为 head
+        this.head = this.head.newer;
+        this.head.older = undefined;
+      } else {
+      // 只有一个数据时调用shift，直接设置为 undefined
+        this.head = undefined
+      }
+
+      // 返回的数据不应该有 newer 和 older 的数据
+      entry.newer = entry.older = undefined;
+        
+      delete this._keymap[entry.key]
+    }
+}
+
+LRU.prototype.get = functino(key) {
+    var entry = this._keymap[key];
+    
+    if(entry === void 0) {
+        return;
+    }
+    
+    if(entry === this.tail) {
+        return entry.value;
+    }
+    
+    if(entry.newer) {
+        if(entry === this.head) {
+            this.head = entry.newer;
+        }
+        
+        entry.newer.older = entry.newer;
+    }
+    
+    if(entry.older) {
+        entry.older.newer = entry.newer;
+    }
+    
+    entry.newer = void 0;
+    entry.older = this.tail;
+    
+    if(this.tail) {
+        this.tail.newrt = entry;
+    }
+    
+    this.tail = entry;
+    
+    return entry.value;
+}
+```
+
