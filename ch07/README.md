@@ -445,3 +445,160 @@ LRU.prototype.get = functino(key) {
 }
 ```
 
+
+
+## 本地存储系统
+
+检测是否禁用 `localStorage`
+
+```javascript
+function getLocalStorage() {
+    if(window.localStorage) {
+        try {
+            localStorage.setItem('key', 'value');
+            localStorage.removeItem('key');
+            return localStorage;
+        }cache(e) {}
+    }
+}
+```
+
+
+
+`store.js` 一个兼容所有浏览器的 `localStorage 适配器`
+
+```javascript
+module.exports = (function() {
+    // Store.js
+    var store = {},
+        win = (typeof window != 'undefined' ? window : global),
+        doc = win.document,
+        localStorageName = 'localStorage',
+        scriptTag = 'script',
+        storage;
+    
+    store.disabled = false;
+    store.version = '1.3.20';
+    
+    // 定义接口（空实现，即便浏览器不支持也不会报错）
+    store.set = function(key, value) {};
+    
+    store.get = function(key, defaultVal) {};
+    
+    store.has = function(key) {
+        return store.get(key) !== undefined;
+    };
+    
+    store.remove = function(key) {};
+    
+    store.clear = function() {};
+    
+    store.transact = function(key, defaultVal, transactionFn) {
+        if(transactionFn == null) {
+            transactionFn = defaultVal;
+            defaultVal = null;
+        }
+        
+        if(defaultVal == null) {
+            defaultVal = {};
+        }
+        
+        var val = store.get(key, defaultVal);
+        transctionFn(val);
+        store.set(key, val);
+    }
+    
+    store.getAll = function() {
+        var ret = {};
+        
+        store.forEach(function(key, val) {
+            ret[key] = val;
+        });
+        
+        return ret;
+    }
+    
+    store.forEach = function() {};
+    
+    store.serialize = function(value) {
+        return JSON.stringify(value);
+    }
+    
+    store.deserialize = function(value) {
+        if(typeof value !== 'string') {
+            return undefined;
+        }
+        
+        try {
+            return JSON.parse(value);
+        }cache(e) {
+            return value || undefined;
+        }
+    }
+    
+    function isLocalStorageNameSupported() {
+        try {
+            return (localStorageName in win && win[localStorageName]);
+        }cache(e) {
+            return false;
+        }
+    }
+    
+    if(isLocalStorageNameSupported()) {
+        storage = win[localStorageName];
+        
+        store.set = function(key, val) {
+            if(val === undefined) {
+                return store.remove(key);
+            }
+            
+            storage.setItem(key, store.serialize(val));
+            
+            return val;
+        }
+        
+        store.get = function(key, defaultVal) {
+            var val = store.deserialize(storage.getItem(key));
+            
+            return (val === undefined ? defaultVal : val);
+        }
+        
+        store.remove = function(key) {
+            storage.removeItem(key);
+        }
+        
+        store.clear = function() {
+            storage.clear();
+        }
+        
+        store.forEach = function(callback) {
+            // 原来 localStorage 有 length 属性和 key 方法
+            for(var i = 0; i < storage.length; i++) {
+                var key = storage.key(i);
+                callback(key, store.get(key));
+            }
+        }
+    }else if(doc && doc.documentElement.addBehavior) { // 支持 addBehavior 代表支持 userData
+        // 使用 userData 逻辑
+    }
+    
+    try {
+        var testKey = '__storejs__';
+        
+        store.set(testKey, testKey);
+        
+        if(store.get(testKey) != testKey) {
+            store.disabled = true;
+        }
+        
+        store.remove(testKey);
+    }cache(e) {
+        store.disabled = true;
+    }
+    
+    store.enabled = !store.disabled;
+    
+    return store;
+}());
+```
+
