@@ -113,3 +113,44 @@ if(window.getComputedStyle) {
 }
 ```
 
+
+
+## 样式名修正
+
+- `float` 对应 `JavaScript` 属性存在兼容性问题
+
+  > `float` 是一个关键字，不能直接用，`IE` 对应的是 `styleFloat`，`W3C` 对应的是 `cssFloat`
+
+- `CSS3` 私有前缀
+
+- `IE` 私有前缀不合流
+
+`avalon.cssName` 的实现
+
+```javascript
+var camlize = avalon.camelize,
+    root = document.documentElement,
+    prefixes = ['', '-webkit-', '-o-', '-moz-', '-ms-'],
+    cssMap = { // 缓存检查过的属性
+        'float': window.Range ? 'cssFloat' : 'styleFloat'
+    };
+
+avalon.cssName = function(name, bost, camelCase) {
+    if(cssMap[name]) {
+        return cssMap[name];
+    }
+    
+    host = host || root.style || {};
+    
+    for(var i = 0, n = prefixes.length; i < n; i++) {
+        camelCase = camelize(prefixes[i] + name);
+        
+        if(camelCase in host) {
+            return (cssMap[name] = camelCase);
+        }
+    }
+    
+    return null;
+}
+```
+
